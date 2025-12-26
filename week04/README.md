@@ -111,13 +111,13 @@ But you DON'T have:
 - ✅ Built-in ground detection and slope handling
 - ✅ **Feels "tight"** - like professional games
 
-**Cons:**
-- ❌ Not affected by physics forces automatically (but you CAN add them manually if needed!)
-- ❌ Can't push Rigidbody objects directly (but can be added via code)
-- ❌ Less "realistic" physics (but more fun to play!)
+**Trade-offs (minor limitations that are actually benefits for player control!):**
+- ⚠️ **Physics interactions are opt-in, not automatic** - You choose when to add knockback/pushback effects in code (giving you precise control instead of random physics pushing you around)
+- ⚠️ **Can't push objects automatically** - Walking into a crate won't push it UNLESS you add the code (prevents accidentally shoving things when you don't want to)
+- ⚠️ **Instant response instead of realistic momentum** - Stops immediately when you release keys (feels "arcade-y" but this is exactly what makes shooters feel good!)
 
 **Real Example - Why This Feels Better:**
-```
+
 You're aiming at an enemy in a shooter:
 1. Press D to step sideways to the right
 2. Character moves right INSTANTLY (no acceleration)
