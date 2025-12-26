@@ -201,7 +201,7 @@ void OnEnemyHit(Vector3 hitDirection, float pushForce)
 
 All these games have tight controls but ALSO have pushback effects - they just code them manually for precise control!
 
-**So to answer your question:** Keep Character Controller and add physics effects in code when you want them. You get precise control AND cool physics effects!
+**The bottom line:** Character Controller gives you the best of both worlds - tight, precise controls for everyday movement, PLUS the ability to add physics effects (like knockback) whenever you want them. You're in control of when and how physics affects your player!
 
 ### 🎯 The Rule of Thumb
 
