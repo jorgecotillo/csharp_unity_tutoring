@@ -7,6 +7,38 @@
 
 ---
 
+## 📦 Before You Start: Installing Packages
+
+This week uses Unity's **New Input System** package. If you haven't installed it yet:
+
+### How to Add Packages in Unity
+
+1. **Open the Package Manager**
+   - Go to menu: Window → Package Manager
+   - Or press: `Ctrl + P` (Windows) / `Cmd + P` (Mac)
+
+2. **Find the package**
+   - At the top left, make sure "Unity Registry" is selected (not "In Project")
+   - Use the search bar to type: "Input System"
+   - Click on "Input System" when it appears in the list
+
+3. **Install it**
+   - Click the "Install" button in the bottom right
+   - Wait for Unity to download and install (takes a few seconds)
+
+4. **Unity will ask to restart**
+   - Click "Yes" to restart the editor
+   - This is needed because the Input System changes how Unity handles input
+
+**Result:** The Input System package is now installed and ready to use!
+
+**Note:** You can use this same method to install other packages like:
+- Cinemachine (for advanced cameras)
+- ProBuilder (for level design)
+- TextMeshPro (for better text)
+
+---
+
 ## 🎯 What You'll Build Today
 
 A player character that:
@@ -62,7 +94,7 @@ rb.AddForce(moveDirection * force);
 **Cons (for player characters):**
 - ❌ **Feels "slippery" or "floaty"** - momentum makes you slide when you stop
 - ❌ **Harder to control precisely** - need to fight against momentum for tight movements
-- ❌ **Can be pushed by other objects** - enemies, explosions, or barrels can shove you around
+- ❌ **Can be pushed by other objects** - enemies, explosions, or barrels can push you around
 - ❌ **More complex to tune** - requires lots of drag/friction tweaking to feel responsive
 
 **Real Example - Why This is Frustrating:**
@@ -112,8 +144,8 @@ But you DON'T have:
 - ✅ **Feels "tight"** - like professional games
 
 **Trade-offs (minor limitations that are actually benefits for player control!):**
-- ⚠️ **Physics interactions are opt-in, not automatic** - You choose when to add knockback/pushback effects in code (giving you precise control instead of random physics pushing you around)
-- ⚠️ **Can't push objects automatically** - Walking into a crate won't push it UNLESS you add the code (prevents accidentally shoving things when you don't want to)
+- ⚠️ **Physics interactions are opt-in, not automatic** - You choose when to add push back effects in code (giving you precise control instead of random physics pushing you around)
+- ⚠️ **Can't push objects automatically** - Walking into a crate won't push it UNLESS you add the code (prevents accidentally pushing things when you don't want to)
 - ⚠️ **Instant response instead of realistic momentum** - Stops immediately when you release keys (feels "arcade-y" but this is exactly what makes shooters feel good!)
 
 **Real Example - Why This Feels Better:**
@@ -149,15 +181,15 @@ They all use instant-stop movement because it feels better for competitive gamep
 
 **Character Controller gives you the BEST of both worlds:**
 - Keep tight, instant-stop controls for normal movement
-- Add physics pushback effects when YOU want them
+- Add push back effects when YOU want them
 
 ```csharp
 // Example: Getting hit by explosion
 void OnExplosionHit(Vector3 explosionForce)
 {
-    // Apply knockback by moving the character
-    Vector3 knockback = explosionForce;
-    characterController.Move(knockback * Time.deltaTime);
+    // Apply push back by moving the character
+    Vector3 pushBack = explosionForce;
+    characterController.Move(pushBack * Time.deltaTime);
     
     // You control:
     // - How strong the push is
@@ -166,13 +198,35 @@ void OnExplosionHit(Vector3 explosionForce)
 }
 
 // Example: Getting hit by enemy
+private float staggerEndTime = 0f;
+private bool isStaggered = false;
+
 void OnEnemyHit(Vector3 hitDirection, float pushForce)
 {
-    // Small push backward
-    Vector3 pushback = hitDirection * pushForce;
-    characterController.Move(pushback * Time.deltaTime);
+    // Apply push back
+    Vector3 pushBack = hitDirection * pushForce;
+    characterController.Move(pushBack * Time.deltaTime);
     
-    // Player staggers for 0.5 seconds then regains control
+    // Start stagger - disable player control for 0.5 seconds
+    isStaggered = true;
+    staggerEndTime = Time.time + 0.5f;
+}
+
+void Update()
+{
+    // Check if stagger period is over
+    if (isStaggered && Time.time >= staggerEndTime)
+    {
+        isStaggered = false;  // Regain control
+    }
+    
+    // Only allow movement input if NOT staggered
+    if (!isStaggered)
+    {
+        // Normal WASD movement code here...
+        Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
+        // ... rest of movement logic
+    }
 }
 ```
 
@@ -182,26 +236,26 @@ void OnEnemyHit(Vector3 hitDirection, float pushForce)
 ```
 ❌ Explosion happens → You fly backward uncontrollably
 ❌ Enemy bumps you → You slide away helplessly  
-❌ Barrel rolls into you → You get shoved around
+❌ Barrel rolls into you → You get pushed around
 ❌ Player frustrated: "I can't control my character!"
 ```
 
 **With Character Controller (controlled physics):**
 ```
-✅ Explosion happens → You add knockback in your code (you decide how much)
+✅ Explosion happens → You add push back in your code (you decide how much)
 ✅ Enemy bumps you → Nothing happens (or small push if you coded it)
 ✅ Barrel rolls into you → Nothing happens (you're not affected by random physics)
 ✅ Player happy: "I'm in control, but explosions still feel impactful!"
 ```
 
 **Real-world example:**
-- **Fortnite**: Character Controller + coded pushback for explosions
-- **Call of Duty**: Character Controller + coded flinch when hit
-- **Apex Legends**: Character Controller + coded knockback for abilities
+- **Fortnite**: Character Controller + coded push back for explosions
+- **Call of Duty**: Character Controller + coded camera shake when hit
+- **Apex Legends**: Character Controller + coded push back for abilities
 
 All these games have tight controls but ALSO have pushback effects - they just code them manually for precise control!
 
-**The bottom line:** Character Controller gives you the best of both worlds - tight, precise controls for everyday movement, PLUS the ability to add physics effects (like knockback) whenever you want them. You're in control of when and how physics affects your player!
+**The bottom line:** Character Controller gives you the best of both worlds - tight, precise controls for everyday movement, PLUS the ability to add physics effects (like being pushed back) whenever you want them. You're in control of when and how physics affects your player!
 
 ### 🎯 The Rule of Thumb
 
@@ -245,6 +299,28 @@ Think of it as a **"smart capsule"** that knows how to move around a level!
 
 ---
 
+### 🎯 How to Add a Character Controller
+
+**Step-by-step:**
+
+1. **Select your GameObject** (e.g., your Player capsule)
+   - Click on it in the Hierarchy window
+
+2. **Open the Inspector** (usually on the right side of Unity)
+
+3. **Add the component:**
+   - Click the "Add Component" button at the bottom of the Inspector
+   - Type "Character Controller" in the search box
+   - Click on "Character Controller" when it appears
+
+**Alternative method:**
+- Select your GameObject
+- Go to menu: Component → Physics → Character Controller
+
+**Result:** You'll see the Character Controller component appear in the Inspector with all its properties!
+
+---
+
 ### 🔧 Key Properties of Character Controller
 
 When you add a Character Controller component, you'll see these settings:
@@ -253,7 +329,7 @@ When you add a Character Controller component, you'll see these settings:
 ```
 What: Center point of the capsule
 Default: (0, 1, 0)
-Why: Positions the capsule collider relative to GameObject
+Why: Sets where the capsule is placed, starting from the GameObject's position
 ```
 
 #### **2. Radius** (float)
@@ -290,11 +366,19 @@ Gotcha: Too high = can climb things that look too tall, Too low = stuck on small
 
 #### **6. Skin Width** (float)
 ```
-What: Small buffer around the collider
+What: Small gap around the capsule edge
 Default: 0.08
-Why: Prevents character from getting stuck in walls (numerical precision buffer)
+Why: Prevents character from getting stuck in walls (like a small safety space)
 Gotcha: Should be at least 1% of radius. Don't set to 0!
 ```
+
+**What happens if you set Skin Width to 0?**
+- ❌ Character gets stuck in walls and can't move away
+- ❌ Character shakes/vibrates when touching walls
+- ❌ Sometimes falls through floors
+- ❌ Collision detection fails randomly
+
+**Why?** Computers need a tiny space to calculate "Am I touching the wall?" correctly. Without it, the math doesn't work well and causes bugs!
 
 #### **7. Min Move Distance** (float)
 ```
@@ -406,6 +490,8 @@ Think of it like this:
 
 ### 📝 Creating an Input Actions Asset
 
+> **⚠️ Important:** `PlayerInputActions` is NOT a package you install! It's a file YOU create in Unity. See detailed instructions in [INPUT_ACTIONS_SETUP.md](INPUT_ACTIONS_SETUP.md) if you get stuck.
+
 **Step 1: Create the Asset**
 1. In Project window, right-click in Assets folder
 2. Create → Input Actions
@@ -433,6 +519,22 @@ Create these actions in the "Player" action map:
   - Down: S
   - Left: A
   - Right: D
+
+**Tip: Adding Multiple Keys for Same Direction**
+
+Want both WASD and Arrow keys to work? You can add multiple bindings!
+
+1. Right-click on any direction (e.g., "Up: W [Keyboard]")
+2. Select "Duplicate"
+3. Configure the duplicate to use a different key (e.g., "Up Arrow [Keyboard]")
+
+Now both keys will work! Your code doesn't change - Unity handles multiple inputs automatically.
+
+Common setup:
+- Up: W + Up Arrow
+- Down: S + Down Arrow
+- Left: A + Left Arrow
+- Right: D + Right Arrow
 
 **Action: "Sprint"**
 - Click + next to "Actions"
@@ -490,6 +592,18 @@ Vector2(-1, -1) // Moving back-left
 
 ### 🎮 Using Input Actions in Code
 
+**Why use Awake() instead of Start()?**
+
+Unity calls methods in this order:
+1. `Awake()` - Called first when script loads
+2. `OnEnable()` - Called when GameObject/script is enabled
+3. `Start()` - Called before first frame
+
+We create Input Actions in `Awake()` because:
+- Input Actions must exist BEFORE `OnEnable()` tries to enable them
+- If we used `Start()`, `OnEnable()` would run first and crash (inputActions would be null)
+- Best practice: use `Awake()` to initialize things that THIS script owns
+
 **Step 1: Create reference**
 ```csharp
 using UnityEngine;
@@ -502,7 +616,7 @@ public class PlayerController : MonoBehaviour
     
     void Awake()
     {
-        // Create instance
+        // Create instance - must happen before OnEnable()!
         inputActions = new PlayerInputActions();
     }
     
@@ -519,6 +633,26 @@ public class PlayerController : MonoBehaviour
     }
 }
 ```
+
+**Why is Enable() so important?**
+
+When you create Input Actions with `new PlayerInputActions()`, they are **disabled by default** - not listening for input yet!
+
+- **Without Enable():** Input Actions always return (0,0) - no input detected! ❌
+- **With Enable():** Input Actions detect your keyboard/gamepad input ✅
+
+**Think of it like a microphone:**
+- `new PlayerInputActions()` = Creating the microphone
+- `.Enable()` = Turning it ON
+- `.Disable()` = Turning it OFF
+
+**Why this design?**
+- Lets you temporarily disable input (e.g., during pause menus)
+- Saves performance when not needed
+- Prevents memory leaks with proper cleanup
+- You control exactly when input is active
+
+That's why you always pair `Enable()` in `OnEnable()` with `Disable()` in `OnDisable()`!
 
 **Step 2: Read input values**
 ```csharp
@@ -610,6 +744,7 @@ Use `transform.forward` and `transform.right`!
 Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
 
 // Convert to 3D direction (relative to player's forward)
+// Multiply by input values to scale direction: 0 = no movement, 1 = full speed, -1 = opposite direction
 Vector3 moveDirection = transform.forward * input.y +  // Forward/Back
                         transform.right * input.x;      // Left/Right
 
@@ -644,6 +779,26 @@ transform.right   = new Vector3(0.707, 0, -0.707) // Southeast
 transform.up      = new Vector3(0, 1, 0)          // Always up (unless rotated)
 ```
 
+**Why don't we use `transform.up` for WASD movement?**
+
+Because WASD controls **horizontal movement** (moving on the ground), not vertical movement (flying up/down):
+
+- `transform.forward` and `transform.right` = Horizontal plane (ground movement) ✅
+- `transform.up` = Vertical axis (flying/jumping) ❌
+
+**Vertical movement is handled separately by gravity:**
+```csharp
+// Horizontal: WASD input
+Vector3 moveDirection = transform.forward * input.y + transform.right * input.x;
+
+// Vertical: Gravity (handled separately below)
+movement.y = verticalVelocity * Time.deltaTime;  // ← Up/down movement
+```
+
+If we used `transform.up` for WASD, pressing W would make you fly upward instead of walking forward!
+
+**When you WOULD use `transform.up`:** Flying games, swimming mechanics, or space games where you need full 3D movement.
+
 ---
 
 ### ⚡ Step 2: Normalizing Diagonal Movement
@@ -664,6 +819,7 @@ Vector3 move = transform.forward * 1 + transform.right * 1;
 Vector3 moveDirection = transform.forward * input.y + transform.right * input.x;
 
 // Normalize only if there's input (avoid normalizing zero vector)
+// magnitude = hypotenuse (straight-line length from origin to point: √(x² + y² + z²))
 if (moveDirection.magnitude > 0.1f)
 {
     moveDirection.Normalize();  // Makes magnitude = 1
