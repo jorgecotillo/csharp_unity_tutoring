@@ -31,11 +31,16 @@ Since Input Actions assets are binary files that Unity generates, you'll need to
    - Click `+` next to the Move action to add a binding
    - From the dropdown, select: `Add Up/Down/Left/Right Composite`
    - Click `⌄` to expand the composite
-   - Configure each direction:
-     - **Up**: Click `<No Binding>` → Listen → Press `W` key
-     - **Down**: Click `<No Binding>` → Listen → Press `S` key
-     - **Left**: Click `<No Binding>` → Listen → Press `A` key
-     - **Right**: Click `<No Binding>` → Listen → Press `D` key
+   - Configure each direction (you're setting which key controls each direction):
+     - **Up**: 
+       1. Click on `Up: <No Binding>` (it will highlight blue)
+       2. On the right side, find "Path" dropdown
+       3. Click the Path dropdown → Type "W" in search → Select "W [Keyboard]"
+     - **Down**: Same steps, but select "S [Keyboard]"
+     - **Left**: Same steps, but select "A [Keyboard]"
+     - **Right**: Same steps, but select "D [Keyboard]"
+   
+   **Tip:** You can also click "Listen" button next to Path and just press the key you want!
 
 6. **Create "Sprint" Action**
    - Click `+` next to "Actions" again
