@@ -897,7 +897,9 @@ void Update()
     }
     
     // Add vertical velocity to movement
+    // Line 1: Horizontal movement (WASD) - direction × speed × deltaTime
     Vector3 movement = moveDirection * currentSpeed * Time.deltaTime;
+    // Line 2: Vertical movement (gravity) - overwrites Y component only
     movement.y = verticalVelocity * Time.deltaTime;
     
     characterController.Move(movement);
@@ -953,6 +955,8 @@ void Update()
 }
 ```
 
+**💡 Note:** The actual PlayerController.cs script in Assets/Scripts organizes this code into separate methods (`HandleMovement()`, `HandleGravity()`, `ApplyMovement()`) for better readability. The logic is the same, just structured differently!
+
 ---
 
 ## Part 5: Camera Follow System (10 minutes)
@@ -997,6 +1001,34 @@ public class CameraFollow : MonoBehaviour
     }
 }
 ```
+
+**📝 Important: Camera Offset Values Are CUSTOMIZABLE!**
+
+The values `(0, 2, -5)` are just a suggested starting point - you can change them to anything! There's nothing special about these numbers. Try different values to get different camera angles.
+
+**What each value controls:**
+- **X** = Left(-) / Right(+)  →  `0` = centered behind player
+- **Y** = Down(-) / Up(+)     →  `2` = camera is 2 units above player
+- **Z** = Forward(+) / Back(-) →  `-5` = camera is 5 units behind player
+
+**Visual representation (top-down view):**
+```
+       Player
+         🚶
+         |
+         | (5 units)
+         |
+       📷 Camera (also 2 units higher)
+```
+
+**Try these alternatives:**
+- `new Vector3(0, 2, -5)` → Default: behind and slightly above (third-person)
+- `new Vector3(0, 10, -8)` → High and far back (strategy game view)
+- `new Vector3(3, 2, -3)` → Over-the-shoulder (Resident Evil style)
+- `new Vector3(0, 1, -2)` → Close follow (tight third-person)
+- `new Vector3(0, 20, 0)` → Directly above (top-down view)
+
+Experiment to find what feels best for YOUR game!
 
 ---
 
@@ -1124,8 +1156,8 @@ smoothSpeed = 1f;  // Feels like camera is drunk
 // Too fast
 smoothSpeed = 1000f;  // No smoothing at all, jittery
 
-// Sweet spot
-smoothSpeed = 5-15f;  // Just right!
+// Sweet spot (pick a value between 5 and 15)
+smoothSpeed = 10f;  // Just right! Try values between 5-15
 ```
 
 ---

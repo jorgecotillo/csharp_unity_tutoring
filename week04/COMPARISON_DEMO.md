@@ -30,6 +30,12 @@ By the end of this demo, you'll **FEEL** why Character Controller is better for 
    - Name it "RigidbodyDemo"
    - Position: (-3, 1, 0)
    - Add component: Rigidbody
+   - **Configure Rigidbody (IMPORTANT!):**
+     - Drag: 0.5 (LOW drag = slides more!)
+     - Angular Drag: 0.05
+     - Mass: 1
+     - Use Gravity: ✅ (checked)
+     - Constraints: Freeze Rotation X, Y, Z (prevents spinning)
    - Add component: RigidbodyDemo script
 
 3. **Create Character Controller Demo Character**
@@ -39,15 +45,123 @@ By the end of this demo, you'll **FEEL** why Character Controller is better for 
    - Add component: Character Controller
    - Add component: CharacterControllerDemo script
 
-4. **Add Visual Labels (Optional but Helpful!)**
+4. **Add Colors to Make Them Easy to Identify**
+   - **For Rigidbody Cube (Red):**
+     1. In Project window, right-click → Create → Material
+     2. Name it "RedMaterial"
+     3. Click on the color box next to "Albedo"
+     4. Choose RED
+     5. Drag the RedMaterial onto the RigidbodyDemo cube in the scene
+   
+   - **For Character Controller Capsule (Green):**
+     1. In Project window, right-click → Create → Material
+     2. Name it "GreenMaterial"
+     3. Click on the color box next to "Albedo"
+     4. Choose GREEN
+     5. Drag the GreenMaterial onto the CharacterControllerDemo capsule
+   
+   Now you can easily tell them apart: Red = Rigidbody, Green = Character Controller!
+
+5. **Add Visual Labels (Optional but Helpful!)**
    - Create 3D Text or UI Text above each character:
      - Above cube: "RIGIDBODY (Arrow Keys)"
      - Above capsule: "CHARACTER CONTROLLER (WASD)"
 
-5. **Setup Camera**
+6. **Setup Camera**
    - Position Main Camera at: (0, 5, -8)
    - Rotation: (30, 0, 0)
    - This gives you a good view of both characters
+
+---
+
+## 🤔 Wait, What About Rigidbody WITHOUT Gravity?
+
+**Great question!** You might be thinking: "If I turn off gravity on Rigidbody, won't it act just like Character Controller?"
+
+**Short answer: NO! The sliding/momentum problem isn't from gravity - it's from how Rigidbody handles ALL movement!**
+
+### 🎓 Important Discovery: Sliding Isn't Automatic!
+
+**You just discovered something critical:** The sliding we're demonstrating requires using `AddForce` + low drag. 
+
+**If you use:** `rb.velocity = moveDirection * speed;`
+- ✅ Stops INSTANTLY (no sliding!)
+- Feels just like Character Controller movement
+
+**So why use Character Controller at all?** Great question! Here's the truth:
+
+### The REAL Differences (Why Character Controller Wins Even Without Sliding):
+
+**Even if Rigidbody stops instantly, Character Controller is STILL better because:**
+
+| Feature | Rigidbody (instant stop) | Character Controller |
+|---------|-------------------------|---------------------|
+| **Ground Detection** | ❌ Need to write raycasts manually | ✅ Built-in `isGrounded` property |
+| **Slope Handling** | ❌ Slides down slopes automatically | ✅ Walks up slopes smoothly |
+| **Step Climbing** | ❌ Gets stuck on stairs | ✅ Auto-climbs with Step Offset |
+| **Being Pushed** | ❌ STILL gets pushed by physics! | ✅ Stays in place (you control) |
+| **Performance** | ⚠️ Full physics simulation (slower) | ✅ Optimized for characters (faster) |
+| **Code Complexity** | ⚠️ Need FixedUpdate, drag tuning | ✅ Simple Update, no tuning needed |
+| **Physics Collisions** | ❌ Affected by ALL physics objects | ✅ Only collides, doesn't react |
+
+### The Real Difference: Velocity vs Direct Movement
+
+**Rigidbody (even with instant stop):**
+```csharp
+// Uses velocity system (part of physics simulation)
+rigidbody.velocity = moveDirection * speed;
+// - STILL part of physics engine
+// - STILL gets pushed by other Rigidbodies
+// - STILL needs FixedUpdate
+// - STILL affected by physics forces
+```
+
+**Character Controller:**
+```csharp
+// Uses direct position changes (bypass physics)
+characterController.Move(moveDirection * speed * Time.deltaTime);
+// - NOT part of physics simulation
+// - WON'T be pushed by physics objects  
+// - Uses Update (simpler)
+// - YOU control when physics affects you
+```
+
+### Test It Yourself!
+
+1. **Turn off gravity on your Rigidbody cube:**
+   - Select RigidbodyDemo cube
+   - In Rigidbody component, UNCHECK "Use Gravity"
+
+2. **Test movement with Up Arrow key:**
+   - Press and hold Up Arrow, then release
+   - ❌ **STILL SLIDES!** Even without gravity!
+   - The cube still has velocity that needs drag to slow down
+
+3. **Now create a physics object to push you:**
+   - Create a Sphere (GameObject → 3D Object → Sphere)
+   - Position it at (0, 2, 5)
+   - Add Rigidbody component
+   - Let it fall and roll into both characters
+   - ❌ **Rigidbody cube:** Gets pushed around!
+   - ✅ **Character Controller capsule:** Ball bounces off, you stay put!
+
+### The Bottom Line:
+
+**Rigidbody (even without sliding):**
+- Still part of physics simulation
+- Still gets pushed by other objects ❌
+- Still needs ground detection code ❌
+- Still slides on slopes ❌
+- More complex to set up ❌
+
+**Character Controller:**
+- NOT part of physics simulation
+- WON'T be pushed (you're in control!) ✅
+- Built-in ground detection (`isGrounded`) ✅
+- Walks up slopes/stairs automatically ✅
+- Simpler code, better performance ✅
+
+**This demo uses AddForce + sliding to make the difference VISIBLE. But even without sliding, Character Controller is better for player characters because of all the built-in features!**
 
 ---
 
@@ -191,9 +305,12 @@ Want to explore more?
 
 1. **Change Rigidbody drag:**
    - Select RigidbodyDemo cube
-   - In RigidbodyDemo script, change `drag` from 2 to 10
-   - Test again - still slides, just less!
-   - Even maximum drag = not as good as Character Controller instant stop!
+   - In Inspector, find Rigidbody component
+   - Change Drag from 0.5 to 5
+   - Test again - slides less, but still slides!
+   - Change Drag to 10 - even less sliding
+   - **Important:** Even with HIGH drag (10), it STILL slides a bit! Character Controller stops instantly no matter what!
+   - Change back to 0.5 to see the full sliding effect again
 
 2. **Add a ramp:**
    - Create a tilted plane as a ramp
