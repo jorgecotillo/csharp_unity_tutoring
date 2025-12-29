@@ -47,18 +47,23 @@ By the end of this demo, you'll **FEEL** why Character Controller is better for 
 
 4. **Add Colors to Make Them Easy to Identify**
    - **For Rigidbody Cube (Red):**
-     1. In Project window, right-click → Create → Material
-     2. Name it "RedMaterial"
-     3. Click on the color box next to "Albedo"
-     4. Choose RED
-     5. Drag the RedMaterial onto the RigidbodyDemo cube in the scene
+     1. In the **Project window** (usually at the bottom of Unity, shows your Assets folder)
+     2. Right-click in an empty area inside the Assets folder
+     3. From the menu: Create → Material (you may need to scroll down in the menu)
+     4. Name it "RedMaterial"
+     5. In the Inspector (right side), click on the white color box next to "Albedo"
+     6. Choose RED from the color picker
+     7. Drag the RedMaterial from the Project window onto the RigidbodyDemo cube in the Scene view or Hierarchy
    
    - **For Character Controller Capsule (Green):**
-     1. In Project window, right-click → Create → Material
-     2. Name it "GreenMaterial"
-     3. Click on the color box next to "Albedo"
-     4. Choose GREEN
-     5. Drag the GreenMaterial onto the CharacterControllerDemo capsule
+     1. In the Project window, right-click in an empty area
+     2. Create → Material
+     3. Name it "GreenMaterial"
+     4. In the Inspector, click on the white color box next to "Albedo"
+     5. Choose GREEN from the color picker
+     6. Drag the GreenMaterial onto the CharacterControllerDemo capsule
+   
+   **Can't find the Project window?** Go to menu: Window → General → Project
    
    Now you can easily tell them apart: Red = Rigidbody, Green = Character Controller!
 
