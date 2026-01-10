@@ -31,7 +31,7 @@ By the end of this curriculum, the student will have built a **complete 3D shoot
 - Wave-based gameplay with boss fights
 - Polished visual and audio effects
 
-**See [FINAL_PROJECT.md](FINAL_PROJECT.md) for the complete roadmap.**
+**See [FINAL_PROJECT_REVISED.md](FINAL_PROJECT_REVISED.md) for the complete roadmap.**
 
 ---
 
@@ -74,84 +74,173 @@ By the end of this curriculum, the student will have built a **complete 3D shoot
 
 ### 🚀 Current Focus: Player Controller & Camera System
 
-#### **Week 4: Player Movement with Character Controller**
-Building the foundation for player control:
-- Character Controller vs Rigidbody (when to use each)
-- Input Actions system (action maps)
-- WASD movement with sprint
-- Manual gravity implementation
-- Basic camera follow system
+#### **Week 4: Character Controller & Basic Movement**
+**Goal:** Get player moving with keyboard controls
+
+**Status:** ⚠️ Partially Complete - Input Actions setup only
+
+**Completed Topics:**
+- ✅ Input System Review
+- ✅ PlayerInput component setup
+- ✅ Input Actions and Action Maps configuration
+
+**Remaining Topics (moved to Week 5):**
+- CharacterController vs Rigidbody comparison
+- Vector2 → Vector3 conversion for movement
+- Transform.Translate vs CharacterController.Move
+- Implementing WASD movement
+- Sprint functionality (Shift key)
+- Velocity and speed calculations
 
 **📁 Folder:** `week04/`  
 **Start Here:** `week04/README.md`
 
-**Key Concepts:**
-- Component architecture
-- Input Actions (better than checking keys directly)
-- Vector2 → Vector3 conversion
-- Normalizing diagonal movement
-- Understanding why Character Controller is better for player characters
+**Key Concepts Covered:**
+- Input System architecture
+- Action Maps for organized input
+- Keyboard input handling setup
 
 ---
 
-#### **Week 5: Mouse Look & Camera Polish**
-Adding professional camera controls:
-- Euler angles vs Quaternions
-- Mouse-controlled camera orbit
-- Vertical angle clamping (prevent flipping)
-- Camera collision detection with raycasting
-- Camera-relative player movement
+#### **Week 5: Complete Movement & Gravity**
+**Goal:** Finish player movement system and add gravity/ground detection
+
+**Topics to Cover:**
+
+**Part 1: Completing Basic Movement (from Week 4)**
+- CharacterController component setup
+- Vector2 → Vector3 conversion (input to world direction)
+- CharacterController.Move() for movement
+- Calculating movement direction from input
+- Speed variables (walk speed, sprint speed)
+- Time.deltaTime for smooth, frame-independent movement
+
+**Part 2: Gravity & Ground Detection**
+- Gravity concepts (constant acceleration)
+- CharacterController doesn't auto-handle gravity
+- Raycasting for ground detection (review from Week 3)
+- LayerMasks for targeted raycasting
+- Vertical velocity accumulation
+- Resetting velocity when grounded
+- Smooth falling behavior
 
 **📁 Folder:** `week05/`  
 **Start Here:** `week05/README.md`
 
 **Key Concepts:**
-- 3D rotations (pitch, yaw, roll)
-- Quaternion.Euler for rotation conversion
-- Layer masks for selective collision
-- Sphere casting for smooth collision
-- LateUpdate() for camera timing
+- Vector math (2D to 3D conversion)
+- Movement with CharacterController
+- Physics simulation (gravity)
+- Ground detection with raycasts
+- Velocity management
 
-**After completing both weeks:** See `week05/COMPLETE_SUMMARY.md` for comprehensive overview
+**Deliverables:**
+- Player moves with WASD
+- Sprint works with Shift key
+- Player falls realistically with gravity
+- Proper ground detection (no floating)
+- Movement feels responsive and grounded
 
 ---
 
 ### 📅 Upcoming Weeks (Planned)
 
-#### **Week 6-7: Shooting Mechanics**
-- Raycasting for hitscan weapons
-- Projectile physics for bullets
-- Weapon base class architecture
-- Bullet spawning and ammunition
-- Crosshair system
+#### **Week 6: Mouse Look & Camera Basics**
+- Quaternions and rotation basics
+- Euler angles vs Quaternions
+- Mouse input (delta movement)
+- Sensitivity settings
+- Camera rotation (horizontal player, vertical camera)
+- Camera vertical clamping (prevent flipping)
 
-#### **Week 8: Weapon System Architecture**
-- Scriptable Objects for weapon data
-- Weapon switching system
-- Inheritance and polymorphism
-- Multiple weapon types (Pistol, Rifle, Shotgun)
+#### **Week 7: Third-Person Camera**
+- Camera positioning and offset
+- Smooth camera following with Lerp
+- Vector3.Lerp for interpolation
+- Camera as separate GameObject
+- Camera rig/arm concept
 
-#### **Week 9-10: Enemy AI & NavMesh**
-- NavMesh AI navigation
-- State machines (Idle, Patrol, Chase, Attack)
+#### **Week 8: Camera Collision Prevention**
+- Camera clipping through walls problem
+- Raycasting for camera collision
+- Adjusting camera distance dynamically
+- LayerMask advanced usage
+- Smooth transition when camera moves
+
+#### **Week 9: Raycasting for Shooting (Hitscan)**
+- Hitscan vs Projectile weapons
+- Shooting raycast from camera
+- RaycastHit information
+- Mouse button input for firing
+- Visual feedback with Debug.DrawRay
+
+#### **Week 10: Simple Crosshair UI**
+- Unity UI basics (Canvas, EventSystem)
+- Screen Space UI
+- UI Image component
+- Anchors and pivots
+- Centering crosshair on screen
+
+#### **Week 11: IDamageable Interface**
+- Interfaces in C#
+- Polymorphism basics
+- Health system design
+- TakeDamage() method
+- Interface implementation
+
+#### **Week 12: Health System**
+- Current HP vs Max HP
+- Properties in C# (getters/setters)
+- Events introduction (UnityEvent)
+- Death when health reaches 0
+- Destroying objects on death
+
+#### **Week 13: Simple Enemy Target**
+- Enemy GameObject setup
+- Visual feedback on hit
+- Enemy prefabs
+- Material color changes
+- Tagging as "Enemy"
+
+#### **Week 14-20: Character Animation**
+- Humanoid character setup (Mixamo)
+- Animation clips import
+- Animator Controller basics
+- Animation parameters and transitions
+- Blend trees for smooth movement
+- Shooting animation integration
+- Enemy animation setup
+
+#### **Week 21-24: Enemy AI**
+- NavMesh basics
+- NavMeshAgent component
+- Enemy state machine (Idle, Patrol, Chase, Attack)
 - Line of sight detection
-- Enemy spawn system
+- Waypoint system
+- Attack range and cooldown
 
-#### **Week 11-12: Health & Damage System**
-- Health management for player and enemies
-- IDamageable interface
-- Hit feedback and visual effects
-- Death and respawn mechanics
+#### **Week 25-26: UI Systems**
+- Player health UI
+- Enemy health bars (world space)
+- Billboard effect for UI
+- Canvas rendering modes
+- UI Image fill amount
 
-#### **Week 13+: Advanced Features**
-- Object pooling for performance
-- Enemy dodge AI (projectile prediction!)
-- Cover system
-- Team AI tactics
-- Boss fights
-- Polish and effects
+#### **Week 27-30: Advanced Weapons**
+- ScriptableObjects for weapon data
+- Weapon switching system
+- Ammo system and reloading
+- Projectile weapon type
+- Physical bullets with Rigidbody
 
-**Full roadmap:** See [FINAL_PROJECT.md](FINAL_PROJECT.md)
+#### **Week 31-32: Polish & Testing**
+- Bug fixing and balancing
+- Game feel and juice
+- Camera shake
+- Particle effects
+- Playtesting and iteration
+
+**Full roadmap:** See [FINAL_PROJECT_REVISED.md](FINAL_PROJECT_REVISED.md)
 
 ---
 
@@ -195,17 +284,17 @@ Adding professional camera controls:
 - ✅ Created custom gravity system
 - ✅ Made objects orbit like planets
 
-### 🏆 Week 4: "I Can Move!"
-- ✅ Player moves with WASD
-- ✅ Sprint functionality
-- ✅ Gravity and ground detection
-- ✅ Basic camera follow
+### 🏆 Week 4: "Input System Mastery!"
+- ✅ Input System setup complete
+- ✅ PlayerInput component configured
+- ✅ Action Maps created
+- ⏳ CharacterController movement (in progress)
 
-### 🏆 Week 5: "Professional Camera!"
-- ✅ Mouse-controlled camera orbit
-- ✅ Camera collision detection
-- ✅ Camera-relative movement
-- ✅ AAA-game quality controls
+### 🎯 Week 5: "Complete Movement System!" (Next Session)
+- ⏳ Finish WASD movement implementation
+- ⏳ Add sprint functionality
+- ⏳ Implement gravity and ground detection
+- ⏳ Create responsive player controls
 
 ---
 
@@ -315,14 +404,18 @@ unity_tutoring/
 
 ## 📊 Progress Tracking
 
-**Total Planned Duration:** 20-24 weeks (5-6 months)  
-**Current Progress:** Week 5 (25% complete)
+**Total Planned Duration:** 32 weeks (8 months)  
+**Current Progress:** Week 4 (12.5% complete)  
+**Current Status:** Input System setup complete, movement implementation in progress
 
 ```
-Weeks 1-3:  ████████░░░░░░░░░░░░ Fundamentals Complete
-Weeks 4-5:  ████████░░░░░░░░░░░░ Player System Complete
-Weeks 6-13: ░░░░░░░░░░░░░░░░░░░░ Core Gameplay (In Progress)
-Weeks 14-24:░░░░░░░░░░░░░░░░░░░░ Advanced Features
+Weeks 1-3:  ████████████████████ Fundamentals Complete ✅
+Week 4:     ██████████░░░░░░░░░░ Input System Setup Complete (50%)
+Week 5:     ░░░░░░░░░░░░░░░░░░░░ Movement & Gravity (Next)
+Weeks 6-8:  ░░░░░░░░░░░░░░░░░░░░ Camera System
+Weeks 9-13: ░░░░░░░░░░░░░░░░░░░░ Combat Basics
+Weeks 14-24:░░░░░░░░░░░░░░░░░░░░ Animation & AI
+Weeks 25-32:░░░░░░░░░░░░░░░░░░░░ Advanced Features & Polish
 ```
 
 ---
@@ -405,6 +498,7 @@ Game development is a journey. Every professional started exactly where you are 
 
 ---
 
-**Last Updated:** December 2025  
-**Current Week:** Week 5 - Mouse Look & Camera Polish  
-**Next Milestone:** Week 6-7 - Shooting Mechanics
+**Last Updated:** January 2026  
+**Current Week:** Week 4 (Input System Setup Complete)  
+**Next Session:** Week 5 - Complete Movement & Gravity  
+**Next Milestone:** Functional player movement with physics
