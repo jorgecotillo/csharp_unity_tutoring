@@ -1214,7 +1214,7 @@ Vector3 desiredPosition = target.position + offset;
 ### ⚠️ Camera Follow Gotchas
 
 **Gotcha #1: Camera going through walls**
-We'll fix this next week (Week 5) with collision detection!
+We'll fix this later (Week 8) with collision detection! For now, don't worry about it.
 
 **Gotcha #2: Target not assigned**
 ```csharp
@@ -1253,10 +1253,11 @@ This week, you're building **the player movement system** for your final NPC Sho
 - ✅ Basic camera follow
 
 **What comes next (future weeks):**
-- Week 5: Mouse look & camera collision
-- Week 6-7: Shooting mechanics & bullets
-- Week 8-9: NPCs & AI
-- Week 10-11: Health, damage, game loop
+- Week 5: Gravity & ground detection improvements
+- Week 6: Mouse look controls
+- Week 7: Third-person camera system
+- Week 8: Camera collision prevention
+- Week 9+: Shooting, NPCs, health, damage, game loop
 
 ---
 
@@ -1286,11 +1287,11 @@ This week, you're building **the player movement system** for your final NPC Sho
    - Scale: (10, 1, 10) - makes 100x100 unit ground
    - Position: (0, 0, 0)
 
-4. **Create Test Environment** (for next weeks)
+4. **Create Test Environment** (for future weeks)
    - GameObject → 3D Object → Cube (rename "TestWall")
    - Position: (0, 1, 10)
    - Scale: (10, 2, 1) - makes a wall
-   - This will help test camera collision next week!
+   - This will help test camera collision in Week 8!
 
 ---
 
@@ -1403,11 +1404,11 @@ characterController.Move(movement);
 
 ## 💡 Next Week Preview
 
-In Week 5, we'll add:
-- Mouse look (rotate camera with mouse!)
-- Camera collision (no more going through walls!)
-- Polish and fine-tuning
-- Start integrating into final project
+In Week 5, we'll improve:
+- Advanced gravity system
+- Better ground detection with raycasting
+- Handling slopes and steps
+- Fine-tuning movement physics
 
 **📁 Next Steps:** Open `week05/README.md` to continue!
 
