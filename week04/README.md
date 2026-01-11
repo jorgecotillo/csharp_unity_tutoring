@@ -1240,35 +1240,147 @@ smoothSpeed = 10f;  // Just right! Try values between 5-15
 
 ---
 
-## Part 6: Putting It All Together (5 minutes)
+## Part 6: Building Your Final Project - Iteration 1 (30 minutes)
 
-### 📋 Setup Checklist
+### 🎯 Final Project Context: NPC Shooter Foundation
+
+This week, you're building **the player movement system** for your final NPC Shooter game! This is the foundation everything else will build on.
+
+**What you're implementing:**
+- ✅ Player movement (WASD)
+- ✅ Sprint system (Shift)
+- ✅ Gravity and ground detection
+- ✅ Basic camera follow
+
+**What comes next (future weeks):**
+- Week 5: Mouse look & camera collision
+- Week 6-7: Shooting mechanics & bullets
+- Week 8-9: NPCs & AI
+- Week 10-11: Health, damage, game loop
+
+---
+
+### 📋 Implementation Checklist
+
+#### Step 1: Create Your Game Scene (5 min)
 
 **In Unity Editor:**
 
-1. **Create Player GameObject**
-   - GameObject → 3D Object → Capsule (rename to "Player")
-   - Scale: (1, 1, 1)
+1. **Create new scene** (File → New Scene → Basic)
+   - Save as "GameScene" in Assets/Scenes/
+
+2. **Create Player GameObject**
+   - GameObject → 3D Object → Capsule
+   - Rename to "Player"
+   - Position: (0, 1, 0)
    - Add component: Character Controller
-   - Adjust Character Controller:
+   - Configure Character Controller:
      - Height: 2
      - Radius: 0.5
      - Center: (0, 1, 0)
+     - Skin Width: 0.08
 
-2. **Create Ground**
-   - GameObject → 3D Object → Plane (rename to "Ground")
-   - Scale: (10, 1, 10) for big ground
+3. **Create Ground Plane**
+   - GameObject → 3D Object → Plane
+   - Rename to "Ground"
+   - Scale: (10, 1, 10) - makes 100x100 unit ground
    - Position: (0, 0, 0)
 
-3. **Setup Camera**
-   - Find Main Camera
-   - Position: (0, 5, -10) to start
-   - Add script: CameraFollow
-   - Assign Player as target
+4. **Create Test Environment** (for next weeks)
+   - GameObject → 3D Object → Cube (rename "TestWall")
+   - Position: (0, 1, 10)
+   - Scale: (10, 2, 1) - makes a wall
+   - This will help test camera collision next week!
 
-4. **Add Scripts to Player**
-   - Add script: PlayerController
-   - Assign Input Actions asset
+---
+
+#### Step 2: Setup Input System (5 min)
+
+**Create Input Actions Asset:**
+
+1. Right-click in Assets folder → Create → Input Actions
+2. Name it "PlayerInputActions"
+3. Double-click to open Input Actions window
+4. Create Action Map: "Player"
+5. Add Actions:
+   - **Move**: Action Type = Value, Control Type = Vector2
+     - Add 2D Vector Composite (WASD)
+   - **Sprint**: Action Type = Button
+     - Binding = Left Shift
+6. Click "Save Asset"
+7. Check "Generate C# Class" in Inspector
+8. Click "Apply"
+
+---
+
+#### Step 3: Implement Player Controller (10 min)
+
+**Create Scripts folder:**
+- Right-click Assets → Create → Folder → Name it "Scripts"
+
+**Create PlayerController.cs:**
+- Right-click Scripts folder → Create → C# Script
+- Name: "PlayerController"
+- Double-click to open in your code editor
+- Copy the complete movement logic from Step 5 above (or reference week04/Assets/Scripts/PlayerController.cs)
+
+**Key systems to implement:**
+```csharp
+// 1. Input reading
+Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
+bool isSprinting = inputActions.Player.Sprint.IsPressed();
+
+// 2. Movement direction calculation
+Vector3 moveDirection = transform.forward * input.y + transform.right * input.x;
+if (moveDirection.magnitude > 0.1f) {
+    moveDirection.Normalize();
+}
+
+// 3. Speed selection
+float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
+
+// 4. Gravity system
+if (characterController.isGrounded) {
+    verticalVelocity = -2f;
+} else {
+    verticalVelocity += Physics.gravity.y * Time.deltaTime;
+}
+
+// 5. Apply movement
+Vector3 movement = moveDirection * currentSpeed * Time.deltaTime;
+movement.y = verticalVelocity * Time.deltaTime;
+characterController.Move(movement);
+```
+
+---
+
+#### Step 4: Setup Camera System (5 min)
+
+**Create CameraFollow.cs:**
+- In Scripts folder → Create → C# Script
+- Name: "CameraFollow"
+- Implement basic follow logic (see Part 5 above)
+
+**Configure Camera:**
+1. Select Main Camera in Hierarchy
+2. Add component: CameraFollow script
+3. Drag Player GameObject to "Target" field
+4. Set Offset: (0, 2, -5)
+5. Set Smooth Speed: 10
+
+---
+
+#### Step 5: Attach Scripts to Player (2 min)
+
+**Select Player GameObject:**
+1. Add component: PlayerController
+2. Drag PlayerInputActions asset to "Input Actions" field
+3. Set Walk Speed: 3
+4. Set Sprint Speed: 6
+
+---
+
+#### Step 6: Test Your Implementation (3 min)
 
 ---
 

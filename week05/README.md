@@ -601,18 +601,174 @@ Vector3 rayStart = target.position + Vector3.up * 0.5f;
 
 ---
 
-## Part 4: Putting It All Together (10 minutes)
+## Part 5: Building Your Final Project - Iteration 2 (30 minutes)
 
-### 🎯 Complete Camera System Features
+### 🎯 Final Project Context: Adding Camera Control
 
-Your Week 5 camera has:
-- ✅ Mouse look (orbit around player)
-- ✅ Vertical angle clamping (no flipping)
-- ✅ Collision detection (no wall clipping)
-- ✅ Smooth movement
-- ✅ Professional feel
+This week, you're upgrading your NPC Shooter with **professional camera controls**!
+
+**What you're adding to your existing project:**
+- ✅ Mouse look (orbit camera around player)
+- ✅ Vertical angle limits (prevent camera flipping)
+- ✅ Camera collision (no wall clipping)
+- ✅ Professional third-person feel
+
+**Previous work (Week 4):**
+- ✅ Player movement with WASD
+- ✅ Sprint system
+- ✅ Gravity and ground detection
+- ✅ Basic camera follow
+
+**What comes next (future weeks):**
+- Week 6-7: Shooting mechanics & bullet spawning
+- Week 8-9: NPC enemies & AI behavior
+- Week 10-11: Health, damage, & win/lose states
 
 ---
+
+### 📋 Implementation Checklist
+
+#### Step 1: Open Your Week 4 Project (1 min)
+
+**Make sure you have:**
+- ✅ Player GameObject with CharacterController
+- ✅ PlayerController script working (WASD movement)
+- ✅ Ground plane
+- ✅ Test wall (if you created it)
+- ✅ Main Camera with CameraFollow script
+
+**If you're missing anything**, go back to Week 4 and complete Part 6 first!
+
+---
+
+#### Step 2: Upgrade PlayerController with Mouse Look (15 min)
+
+**Open PlayerController.cs:**
+
+Add these new fields at the top:
+```csharp
+[Header("Mouse Look Settings")]
+public float mouseSensitivity = 2f;
+public float minPitch = -80f;
+public float maxPitch = 80f;
+
+private float cameraPitch = 0f;
+private Camera mainCamera;
+```
+
+In `Awake()`, cache the camera:
+```csharp
+void Awake() {
+    inputActions = new PlayerInputActions();
+    mainCamera = Camera.main;
+}
+```
+
+Add mouse look to `Update()` (before movement code):
+```csharp
+void Update() {
+    HandleMouseLook();
+    HandleMovement();
+    HandleGravity();
+    ApplyMovement();
+}
+
+void HandleMouseLook() {
+    // Get mouse input
+    Vector2 mouseDelta = inputActions.Player.Look.ReadValue<Vector2>();
+    
+    // Horizontal rotation (rotate player)
+    transform.Rotate(Vector3.up * mouseDelta.x * mouseSensitivity);
+    
+    // Vertical rotation (rotate camera)
+    cameraPitch -= mouseDelta.y * mouseSensitivity;
+    cameraPitch = Mathf.Clamp(cameraPitch, minPitch, maxPitch);
+    mainCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0, 0);
+}
+```
+
+**Update Input Actions:**
+1. Open PlayerInputActions asset
+2. Add new Action: "Look"
+   - Action Type: Value
+   - Control Type: Vector2
+   - Binding: Mouse → Delta
+3. Save Asset
+
+---
+
+#### Step 3: Add Camera Collision Detection (10 min)
+
+**Upgrade CameraFollow.cs:**
+
+Add collision detection fields:
+```csharp
+[Header("Collision Settings")]
+public LayerMask collisionMask;
+public float collisionOffset = 0.3f;
+public float minDistance = 1f;
+```
+
+Modify `LateUpdate()` to include raycasting:
+```csharp
+void LateUpdate() {
+    if (target == null) return;
+    
+    // Calculate desired position
+    Vector3 desiredPosition = target.position + offset;
+    
+    // Check for obstacles
+    Vector3 direction = desiredPosition - target.position;
+    float distance = direction.magnitude;
+    
+    RaycastHit hit;
+    if (Physics.Raycast(target.position, direction.normalized, out hit, distance, collisionMask)) {
+        // Hit something! Move camera closer
+        float adjustedDistance = Mathf.Max(hit.distance - collisionOffset, minDistance);
+        desiredPosition = target.position + direction.normalized * adjustedDistance;
+    }
+    
+    // Smooth movement
+    Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed * Time.deltaTime);
+    transform.position = smoothedPosition;
+    
+    // Look at player
+    transform.LookAt(target);
+}
+```
+
+**Configure collision mask:**
+1. Select Main Camera
+2. In CameraFollow component, set Collision Mask to "Default" (walls/ground)
+3. Set Collision Offset: 0.3
+4. Set Min Distance: 1
+
+---
+
+#### Step 4: Make Camera a Child of Player (2 min)
+
+**Important for mouse look to work correctly:**
+
+1. In Hierarchy, **drag Main Camera onto Player GameObject**
+   - This makes camera a child of player
+   - Camera now inherits player's rotation
+
+2. **Reset camera's local position:**
+   - Select Main Camera
+   - In Inspector, click gear icon → Reset (on Transform component)
+   - This resets to (0, 0, 0) local position
+
+3. **Set camera's starting local position:**
+   - Position: (0, 1.6, 0) - at player's head height
+   - Rotation: (0, 0, 0)
+
+4. **Update CameraFollow offset:**
+   - Now that camera is a child, the offset is relative to player
+   - Try offset: (0, 0.4, -3) for over-shoulder view
+
+---
+
+#### Step 5: Test Your Complete System (2 min)
 
 ### 📋 Testing Checklist
 
