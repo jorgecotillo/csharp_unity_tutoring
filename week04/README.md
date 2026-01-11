@@ -803,15 +803,83 @@ If we used `transform.up` for WASD, pressing W would make you fly upward instead
 
 ### ⚡ Step 2: Normalizing Diagonal Movement
 
+**First: What is Magnitude?**
+
+**Magnitude** = the **length** of a vector. It's the straight-line distance from the origin (0,0,0) to the point the vector represents.
+
+**How it's calculated:** Using the Pythagorean theorem in 3D:
+
+```csharp
+Vector3 v = new Vector3(3, 4, 0);
+float magnitude = Mathf.Sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+// magnitude = √(3² + 4² + 0²) = √(9 + 16 + 0) = √25 = 5
+
+// Or just use Unity's built-in property:
+float magnitude = v.magnitude;  // Returns 5
+```
+
+**Visual example:**
+```
+      (3, 4, 0)
+         •
+        /|
+       / |
+    5 /  | 4
+     /   |
+    /    |
+   •-----•
+  (0,0) 3
+
+The diagonal line = magnitude = 5
+```
+
+**Why `transform.forward` always has magnitude = 1:**
+
+Unity **automatically normalizes** `transform.forward` and `transform.right` - they ALWAYS have magnitude = 1, no matter which direction your object is facing:
+
+```csharp
+// Facing north (0° rotation)
+transform.forward = (0, 0, 1)
+magnitude = √(0² + 0² + 1²) = 1 ✅
+
+// Facing northeast (45° rotation)
+transform.forward = (0.707, 0, 0.707)
+magnitude = √(0.707² + 0² + 0.707²) = √(0.5 + 0.5) = 1 ✅
+```
+
+---
+
+**Why do we need to normalize?**
+
+When you press W+D simultaneously, you're telling the game:
+- "Move forward at 100% speed" (transform.forward * 1)
+- PLUS "Move right at 100% speed" (transform.right * 1)
+
+This **adds two unit vectors together**, creating a longer vector!
+
+**Important:** This has NOTHING to do with which direction the player is facing. Whether your player faces north, northeast, or any other direction, `transform.forward` and `transform.right` are ALWAYS normalized (magnitude = 1). 
+
+The problem happens when you **combine your input** (pressing multiple keys):
+
 **The Problem:**
 ```csharp
-// Pressing W only
+// Pressing W only (moving forward)
 Vector3 move = transform.forward * 1;  // Magnitude = 1 ✅
 
-// Pressing W + D (diagonal)
+// Pressing W + D (moving diagonally forward-right)
 Vector3 move = transform.forward * 1 + transform.right * 1;
-// Magnitude = 1.414 (√2) ❌ 
+// You're ADDING two normalized vectors!
+// (0,0,1) + (1,0,0) = (1,0,1)
+// Magnitude = √(1² + 0² + 1²) = √2 = 1.414 ❌ 
 // Player moves 41% faster diagonally!
+```
+
+**Why is this unfair?**
+```
+Player pressing W only:     Moves 1 unit per second
+Player pressing W+D:        Moves 1.414 units per second (41% faster!)
+
+Result: Diagonal movement = speed boost exploit!
 ```
 
 **The Solution: Normalize!**
@@ -826,14 +894,24 @@ if (moveDirection.magnitude > 0.1f)
 }
 ```
 
+**After normalizing:**
+```
+Player pressing W only:     Moves 1 unit per second ✅
+Player pressing W+D:        Moves 1 unit per second ✅
+
+Result: Fair! Same speed in all directions!
+```
+
 **What does Normalize() do?**
 ```csharp
 Vector3 v = new Vector3(3, 4, 0);
 Debug.Log(v.magnitude);  // 5
 
-v.Normalize();  // Divides by magnitude
+v.Normalize();  // Divides each component by magnitude
 Debug.Log(v);            // (0.6, 0.8, 0)
 Debug.Log(v.magnitude);  // 1 ✅
+
+// The DIRECTION stays the same, but the LENGTH becomes 1
 ```
 
 ---
