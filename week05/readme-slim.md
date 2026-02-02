@@ -442,10 +442,27 @@ Press W+D (input = (1, 1)):
 
 **Problem:** When pressing W+D, the vector is (1, 0, 1).
 
+**How do we calculate the length of this vector?**
+
+You know the 2D Pythagorean theorem: `a² + b² = c²`
+
+In 3D, we just add the third dimension: `x² + y² + z² = length²`
+
+Our vector (1, 0, 1) means:
+- **x = 1** (moving right)
+- **y = 0** (not moving up/down - staying on the ground)
+- **z = 1** (moving forward)
+
 ```csharp
-// Magnitude (length) of (1, 0, 1):
-magnitude = √(1² + 0² + 1²) = √2 = 1.414
+// Length (magnitude) of vector (1, 0, 1):
+length = √(x² + y² + z²)
+       = √(1² + 0² + 1²)
+       = √(1 + 0 + 1)
+       = √2
+       = 1.414
 ```
+
+> 💡 **Why is there a 0² in there?** Because we always measure all 3 directions in 3D, even when one is zero. The Y (up/down) is 0 because we're moving on flat ground, not jumping or falling.
 
 **This means diagonal movement is 41% faster than straight movement!**
 
@@ -570,6 +587,64 @@ private void HandleGravity()
     }
 }
 ```
+
+---
+
+### ⚠️ Why Clamp Falling Speed to -50?
+
+**The problem:** Without a limit, falling speed keeps increasing forever!
+
+```
+Time falling:    1 sec    5 sec    10 sec    60 sec
+Velocity:        -9.8     -49      -98       -588 m/s ← CRAZY FAST!
+```
+
+At -588 m/s, the player falls **faster than the speed of sound**! 🚀
+
+**Why -50 specifically?**
+
+`-50 m/s ≈ 112 mph` - This is called **terminal velocity** in real life.
+
+In the real world, air resistance stops you from falling infinitely fast. A skydiver in free-fall maxes out around 120 mph (about 53 m/s). We use -50 as a nice round number.
+
+| Value | Speed | Real-World Comparison |
+|-------|-------|----------------------|
+| -10 | 22 mph | Running fast |
+| -50 | 112 mph | Skydiver / Fast car |
+| -100 | 224 mph | Race car |
+| No limit | ∞ | Breaks the game! |
+
+---
+
+### ❓ Why `Mathf.Max` and not `Mathf.Min`?
+
+This is tricky because of **negative numbers**!
+
+```csharp
+// We want: velocity can't go BELOW -50 (can't be MORE negative)
+// But -50 is "bigger" than -100 on the number line!
+
+Number line:  -100 ← -50 ← -25 ← 0 → 25 → 50 → 100
+              smaller ←──────────────────→ bigger
+
+Mathf.Max(-100, -50) = -50  ← Returns the "bigger" (less negative) one ✓
+Mathf.Max(-30, -50) = -30   ← -30 is already above our limit, keep it ✓
+```
+
+**So `Mathf.Max(velocity, -50)` means: "Don't let velocity go below -50"**
+
+---
+
+### 💥 What Happens Without This Clamp?
+
+1. Player falls for a long time
+2. Velocity becomes -500, -1000, -5000...
+3. Player moves SO fast they **pass through the ground** (collision missed!)
+4. Player falls into the void forever 💀
+
+**The clamp prevents this catastrophic bug!**
+
+---
 
 **Gravity over time (visualized):**
 ```
@@ -1031,7 +1106,431 @@ Vector3 smoothed = Vector3.Lerp(current, target, speed * Time.deltaTime);
 
 ---
 
-## 🔜 Next Week Preview: Week 6
+## � Complete Scripts with Implementation Notes
+
+Below are the complete scripts. Each section is annotated with **what concept it applies** from this week's learning.
+
+---
+
+### PlayerController.cs - Full Implementation
+
+Create this file at: `Assets/Scripts/PlayerController.cs`
+
+```csharp
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+/// <summary>
+/// Week 5: Basic player movement using Character Controller
+/// Handles WASD movement, sprint, and gravity
+/// </summary>
+public class PlayerController : MonoBehaviour
+{
+    // =========================================================
+    // INSPECTOR FIELDS (Appear in Unity's Inspector panel)
+    // =========================================================
+    // [Header] creates a label in Inspector
+    // [Tooltip] shows help when you hover over the field
+    
+    [Header("Movement Settings")]
+    [Tooltip("Normal walking speed (units per second)")]
+    public float walkSpeed = 3f;
+    
+    [Tooltip("Sprint speed when holding Shift (units per second)")]
+    public float sprintSpeed = 6f;
+    
+    [Header("Gravity Settings")]
+    [Tooltip("Downward force when grounded (keeps player stuck to ground)")]
+    public float groundedGravity = -2f;
+    
+    [Header("Debug")]
+    [Tooltip("Show debug info in console")]
+    public bool showDebugInfo = false;
+    
+    // =========================================================
+    // PRIVATE VARIABLES (Only this script can access these)
+    // =========================================================
+    
+    // Components we need to access
+    private CharacterController characterController;  // Handles collision & movement
+    private PlayerInputActions inputActions;          // Our input (from the asset you created!)
+    
+    // State tracking
+    private float verticalVelocity = 0f;       // For gravity (falling speed)
+    private Vector3 moveDirection = Vector3.zero;  // Current movement direction
+    
+    // =========================================================
+    // AWAKE - Runs ONCE when object is created (before Start)
+    // =========================================================
+    // USE FOR: Getting component references, creating objects
+    
+    void Awake()
+    {
+        // GET COMPONENT: Find the CharacterController on this same GameObject
+        // CONCEPT: GetComponent<T>() searches THIS object for a component of type T
+        characterController = GetComponent<CharacterController>();
+        
+        // Safety check - if no CharacterController, the script won't work
+        if (characterController == null)
+        {
+            Debug.LogError("PlayerController requires a CharacterController component!");
+            enabled = false;  // Disable this script
+            return;
+        }
+        
+        // CREATE the input actions instance
+        // CONCEPT: This is the C# class Unity generated from your PlayerInputActions asset
+        // The actions are DISABLED by default - we enable them in OnEnable()
+        inputActions = new PlayerInputActions();
+    }
+    
+    // =========================================================
+    // ON ENABLE - Runs when script becomes active
+    // =========================================================
+    // USE FOR: Turning ON things that need to be turned off later
+    
+    void OnEnable()
+    {
+        // ENABLE the Player action map so it listens for input
+        // CONCEPT: Input Actions are OFF by default - you must turn them on!
+        inputActions.Player.Enable();
+    }
+    
+    // =========================================================
+    // ON DISABLE - Runs when script becomes inactive
+    // =========================================================
+    // USE FOR: Cleanup, preventing memory leaks
+    
+    void OnDisable()
+    {
+        // DISABLE the Player action map
+        // CONCEPT: Prevents memory leaks! The Input System holds references to enabled actions.
+        // If you don't disable them, those references stick around even after the object is destroyed.
+        inputActions.Player.Disable();
+    }
+    
+    // =========================================================
+    // UPDATE - Runs every frame (60+ times per second)
+    // =========================================================
+    // USE FOR: Reading input, calculating movement, game logic
+    
+    void Update()
+    {
+        HandleMovement();  // Step 1: Read input, calculate direction
+        HandleGravity();   // Step 2: Apply gravity
+        ApplyMovement();   // Step 3: Actually move the player
+        
+        if (showDebugInfo)
+        {
+            DebugInfo();
+        }
+    }
+    
+    // =========================================================
+    // HANDLE MOVEMENT - Read input and calculate direction
+    // =========================================================
+    
+    private void HandleMovement()
+    {
+        // STEP 1: READ INPUT
+        // CONCEPT: ReadValue<Vector2>() gets the current input as a Vector2
+        // - input.x = A/D keys (-1 to +1)
+        // - input.y = W/S keys (-1 to +1)
+        Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
+        
+        // CONCEPT: IsPressed() returns true if the key is currently held down
+        bool isSprinting = inputActions.Player.Sprint.IsPressed();
+        
+        // STEP 2: CONVERT 2D INPUT → 3D DIRECTION
+        // CONCEPT: transform.forward = where player faces (blue arrow in Unity)
+        //          transform.right = player's right side (red arrow in Unity)
+        // 
+        // This formula combines them:
+        // - input.y = forward/back → multiply by transform.forward
+        // - input.x = left/right → multiply by transform.right
+        // - Add them together = diagonal movement works automatically!
+        moveDirection = transform.forward * input.y + transform.right * input.x;
+        
+        // STEP 3: NORMALIZE DIAGONAL MOVEMENT
+        // CONCEPT: Without this, moving diagonally is 1.414x faster!
+        // magnitude = √(x² + y² + z²) - length of the vector
+        // Normalize() makes the length = 1, keeping direction the same
+        if (moveDirection.magnitude > 0.1f)  // 0.1 deadzone to ignore tiny movements
+        {
+            moveDirection.Normalize();
+        }
+        
+        // STEP 4: APPLY SPEED
+        // CONCEPT: The ternary operator: condition ? valueIfTrue : valueIfFalse
+        float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
+        moveDirection *= currentSpeed;  // Multiply vector by speed
+    }
+    
+    // =========================================================
+    // HANDLE GRAVITY - Make player fall when in air
+    // =========================================================
+    
+    private void HandleGravity()
+    {
+        // CONCEPT: CharacterController doesn't have built-in gravity like Rigidbody
+        // We have to implement it ourselves!
+        
+        if (characterController.isGrounded)
+        {
+            // WHEN GROUNDED: Apply small downward force
+            // WHY -2 instead of 0?
+            // - Keeps isGrounded = true reliably
+            // - Prevents player from "bouncing" on slopes
+            // - Pushes player down into the ground slightly
+            verticalVelocity = groundedGravity;  // -2f
+        }
+        else
+        {
+            // WHEN IN AIR: Accelerate downward (gravity)
+            // CONCEPT: Physics.gravity.y = -9.81 (Earth's gravity in m/s²)
+            // CONCEPT: Time.deltaTime = time since last frame (makes it frame-rate independent)
+            //
+            // Each frame, we ADD more downward velocity:
+            // Frame 1: 0 + (-9.81 × 0.016) = -0.16
+            // Frame 2: -0.16 + (-9.81 × 0.016) = -0.32
+            // ... velocity increases = falls faster over time!
+            verticalVelocity += Physics.gravity.y * Time.deltaTime;
+            
+            // CLAMP: Don't fall faster than 50 m/s (prevents crazy speeds)
+            // CONCEPT: Mathf.Max returns the larger value
+            // -50 is "larger" than -100, so this limits falling speed
+            //
+            // WHY Mathf instead of Math?
+            // - Math (System.Math) uses DOUBLE precision (64-bit)
+            // - Mathf (UnityEngine.Mathf) uses FLOAT precision (32-bit)
+            // - Unity uses floats everywhere (Vector3, positions, etc.)
+            // - GPUs are optimized for floats, not doubles
+            // - If you used Math.Max, you'd need: (float)Math.Max(...) ← annoying cast!
+            // - Mathf.Max works directly with floats - cleaner code!
+            verticalVelocity = Mathf.Max(verticalVelocity, -50f);
+        }
+    }
+    
+    // =========================================================
+    // APPLY MOVEMENT - Actually move the player
+    // =========================================================
+    
+    private void ApplyMovement()
+    {
+        // STEP 1: Calculate horizontal movement
+        // CONCEPT: Multiply by Time.deltaTime to make frame-rate independent
+        // Without it: 60 FPS moves 2x faster than 30 FPS!
+        Vector3 movement = moveDirection * Time.deltaTime;
+        
+        // STEP 2: Add vertical movement (gravity)
+        movement.y = verticalVelocity * Time.deltaTime;
+        
+        // STEP 3: Tell CharacterController to move
+        // CONCEPT: CharacterController.Move() handles collision automatically
+        // It won't let you walk through walls or fall through floors
+        characterController.Move(movement);
+    }
+    
+    // =========================================================
+    // DEBUG - Show info in console
+    // =========================================================
+    
+    private void DebugInfo()
+    {
+        Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
+        Debug.Log($"Input: {input} | Grounded: {characterController.isGrounded} | " +
+                  $"Vertical Velocity: {verticalVelocity:F2} | " +
+                  $"Speed: {moveDirection.magnitude:F2}");
+    }
+    
+    // =========================================================
+    // PUBLIC GETTERS - Let other scripts read our state
+    // =========================================================
+    // CONCEPT: "=>" is a short way to write a read-only property
+    // These let other scripts check our state without modifying it
+    
+    public bool IsGrounded => characterController.isGrounded;
+    public bool IsMoving => moveDirection.magnitude > 0.1f;
+    public float CurrentSpeed => moveDirection.magnitude;
+}
+```
+
+---
+
+### CameraFollow.cs - Full Implementation
+
+Create this file at: `Assets/Scripts/CameraFollow.cs`
+
+```csharp
+using UnityEngine;
+
+/// <summary>
+/// Week 5: Basic camera follow system
+/// Makes the camera smoothly follow the player from behind
+/// </summary>
+public class CameraFollow : MonoBehaviour
+{
+    // =========================================================
+    // INSPECTOR FIELDS
+    // =========================================================
+    
+    [Header("Target Settings")]
+    [Tooltip("The transform to follow (usually the player)")]
+    public Transform target;  // Drag your Player here in Unity Inspector!
+    
+    [Header("Camera Position")]
+    [Tooltip("Offset from target position (X=left/right, Y=up/down, Z=forward/back)")]
+    public Vector3 offset = new Vector3(0, 2, -5);
+    // CONCEPT: offset = (0, 2, -5) means:
+    // - X = 0: centered horizontally
+    // - Y = 2: 2 units above the player
+    // - Z = -5: 5 units behind the player
+    
+    [Header("Smoothing")]
+    [Tooltip("How quickly camera catches up to target (higher = faster)")]
+    [Range(1f, 20f)]  // Creates a slider in Inspector, limits 1 to 20
+    public float smoothSpeed = 10f;
+    
+    [Header("Look At")]
+    [Tooltip("Should camera always look at target?")]
+    public bool lookAtTarget = true;
+    
+    [Tooltip("Offset for look-at target (look at player's head, not feet)")]
+    public Vector3 lookAtOffset = new Vector3(0, 1, 0);  // 1 unit up from player's position
+    
+    [Header("Debug")]
+    public bool showDebugGizmos = false;
+    
+    // =========================================================
+    // LATE UPDATE - Runs AFTER all Update() calls
+    // =========================================================
+    // CONCEPT: Why LateUpdate instead of Update?
+    // 
+    // Frame order: FixedUpdate → Update → LateUpdate → Render
+    // 
+    // - Player moves in Update()
+    // - Camera follows in LateUpdate()
+    // 
+    // This ensures camera always sees player's NEW position!
+    // If camera used Update(), it might run BEFORE player moves = jittery camera
+    
+    void LateUpdate()
+    {
+        // Safety check - do nothing if no target assigned
+        if (target == null)
+        {
+            Debug.LogWarning("CameraFollow: No target assigned!");
+            return;
+        }
+        
+        FollowTarget();
+        
+        if (lookAtTarget)
+        {
+            LookAtTarget();
+        }
+    }
+    
+    // =========================================================
+    // FOLLOW TARGET - Smoothly move camera to follow player
+    // =========================================================
+    
+    private void FollowTarget()
+    {
+        // STEP 1: Calculate where camera WANTS to be
+        // CONCEPT: target.position = player's current position
+        //          offset = how far from player we want to be
+        Vector3 desiredPosition = target.position + offset;
+        
+        // STEP 2: Smoothly move from current position to desired position
+        // CONCEPT: Vector3.Lerp does "linear interpolation"
+        // 
+        // Lerp(a, b, t) blends between a and b:
+        // - t = 0 → returns a
+        // - t = 0.5 → returns halfway between a and b
+        // - t = 1 → returns b
+        //
+        // By using smoothSpeed * Time.deltaTime as t:
+        // - Each frame, we move a FRACTION of the remaining distance
+        // - This creates smooth "easing" (fast at first, slow as we get close)
+        Vector3 smoothedPosition = Vector3.Lerp(
+            transform.position,              // Where camera is NOW
+            desiredPosition,                 // Where camera WANTS to be
+            smoothSpeed * Time.deltaTime     // How much to move (0-1 range)
+        );
+        
+        // STEP 3: Apply the new position
+        transform.position = smoothedPosition;
+    }
+    
+    // =========================================================
+    // LOOK AT TARGET - Point camera at player
+    // =========================================================
+    
+    private void LookAtTarget()
+    {
+        // Calculate where to look (player position + offset to look at head)
+        Vector3 lookAtPoint = target.position + lookAtOffset;
+        
+        // CONCEPT: LookAt() rotates this object to face a point
+        // Camera will always point at the player's head area
+        transform.LookAt(lookAtPoint);
+    }
+    
+    // =========================================================
+    // ON DRAW GIZMOS - Draw debug visuals in Scene view
+    // =========================================================
+    // CONCEPT: Gizmos are visual debugging tools that only show in Scene view
+    // They don't appear in the actual game!
+    
+    void OnDrawGizmos()
+    {
+        if (!showDebugGizmos || target == null) return;
+        
+        // Yellow line: from camera to player
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawLine(transform.position, target.position);
+        
+        // Green sphere: where camera wants to be
+        Gizmos.color = Color.green;
+        Vector3 desiredPos = target.position + offset;
+        Gizmos.DrawWireSphere(desiredPos, 0.3f);
+        
+        // Red sphere: where camera is looking
+        Gizmos.color = Color.red;
+        Vector3 lookAtPoint = target.position + lookAtOffset;
+        Gizmos.DrawWireSphere(lookAtPoint, 0.2f);
+    }
+}
+```
+
+---
+
+### 📋 Setup Checklist
+
+After creating both scripts:
+
+1. **PlayerController.cs:**
+   - [ ] Create script in `Assets/Scripts/`
+   - [ ] Select **Player** GameObject in Hierarchy
+   - [ ] Click **Add Component** → search "PlayerController"
+   - [ ] Make sure Player also has **CharacterController** component
+
+2. **CameraFollow.cs:**
+   - [ ] Create script in `Assets/Scripts/`
+   - [ ] Select **Main Camera** in Hierarchy
+   - [ ] Click **Add Component** → search "CameraFollow"
+   - [ ] Drag **Player** from Hierarchy to the **Target** field
+
+3. **Test:**
+   - [ ] Press Play
+   - [ ] WASD should move player
+   - [ ] Shift should sprint
+   - [ ] Camera should smoothly follow
+
+---
+
+## �🔜 Next Week Preview: Week 6
 
 **Next week you'll learn:**
 - 3D rotation concepts (Euler angles vs Quaternions)
