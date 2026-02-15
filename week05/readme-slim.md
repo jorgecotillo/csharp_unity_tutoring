@@ -760,7 +760,211 @@ result      result       result       result       result
 
 ---
 
-### 🎯 Lerp for Smooth Following
+### 🪢 Lerp Does NOT Always Move "Fast Then Slow"
+
+> **Important:** Lerp by itself has NO built-in motion style. It's just a formula:
+> `result = start + (end - start) * t` — a blend knob between two values. That's it.
+>
+> The "fast then slow" behavior comes from **how WE choose to use it** for the camera.
+
+There are different ways to use Lerp, and each creates a different feel:
+
+| How you use Lerp | What happens | Motion style |
+|---|---|---|
+| **Every frame, current→target** (our camera) | Moves a % of remaining gap | Fast → slow (ease-out) |
+| **Fixed `t` sliding 0→1 over time** | Even progress each step | Constant speed (linear) |
+| **`t` starts small, gets bigger** | Slow start, speeds up | Slow → fast (ease-in) |
+
+**We CHOSE the first way for our camera.** But someone else could use Lerp differently for a different effect. Lerp is just a tool — the behavior depends on how you configure it.
+
+---
+
+### 🪢 Why Our Camera Uses the "Rubber Band" Style
+
+In our code, we call Lerp **every frame** with `current position → target position`. This means each frame we say:
+
+> "Move 10% of the **remaining** gap."
+
+**Think of it like a rubber band** tied between the camera and the player:
+
+```
+Player runs right →
+
+[Camera]━━━━━━━━━━━━━━━━━━━━[Player]
+         LONG stretch = STRONG pull → BIG movement
+
+[Camera]━━━━━━[Player]
+         SHORT stretch = WEAK pull → small movement
+
+[Camera]━[Player]
+         TINY stretch = barely pulls → tiny nudge
+```
+
+The rubber band doesn't "choose" to go fast first. It just pulls **proportionally to how stretched it is**. Big gap = strong pull. Small gap = weak pull.
+
+**The numbers:**
+```
+Frame 1: Gap = 100  → Move 10% → moves 10   (fast — big gap!)
+Frame 2: Gap = 90   → Move 10% → moves 9
+Frame 3: Gap = 81   → Move 10% → moves 8.1  (slowing down...)
+Frame 5: Gap = 65.6 → Move 10% → moves 6.6
+Frame 10: Gap = 34.9 → Move 10% → moves 3.5 (gentle now)
+Frame 20: Gap = 12.2 → Move 10% → moves 1.2 (crawling in)
+```
+
+---
+
+### ❓ Why This Style Works for a Camera (Not Slow→Fast)
+
+If the camera moved **slow first, then fast**, it would feel broken:
+
+```
+Player moves right →
+
+Frame 1: Player runs away... camera barely moves     😐 "hello? follow me?"
+Frame 2: Player is far away... camera still slow      😠 "come ON!"
+Frame 3: Camera FINALLY speeds up                     🤨 "why did you wait??"
+Frame 4: Camera zooms past at full speed              😵 "WHOA too fast!"
+```
+
+**The rubber band way (fast first) feels natural for a camera:**
+
+```
+Frame 1: Player moves... camera SNAPS to chase!       ✓ Responsive!
+Frame 2: Camera closing in quickly...                  ✓ Keeping up!
+Frame 3: Camera getting close, slowing gently...       ✓ Smooth!
+Frame 4: Camera settles into position softly           ✓ No jerk!
+```
+
+**Real-life things that move fast→slow (like our camera):**
+- Catching a ball — hand rushes toward it, then gently closes
+- A door closing — swings fast, then settles gently
+- Sitting in a chair — you drop toward it fast, then ease into place
+
+**But other things in games DO use slow→fast (different Lerp configuration):**
+- A car accelerating from a stop
+- A rocket launching
+- A charging attack winding up
+
+**The point:** Lerp is a general-purpose tool. We configure it the rubber-band way because that's what feels right for a follow-camera. A different game feature might configure Lerp completely differently.
+
+---
+
+### � When to Use Each Lerp Style in Games
+
+Here's a cheat sheet — pick the motion style that matches what you're building:
+
+#### **Ease-Out (Fast → Slow)** — "Rubber band / Catching up"
+
+Use when something needs to **react immediately** then **settle gently**:
+
+| Game Feature | Why ease-out works |
+|---|---|
+| Camera following player | Snaps to chase, settles smoothly |
+| Health bar going down | Drops fast, then creeps to final value |
+| UI panel sliding in | Flies in, then gently stops in place |
+| Cursor snapping to a menu button | Jumps toward it, eases into position |
+| Recoil recovery | Gun kicks up fast, slowly returns to center |
+
+```csharp
+// Ease-out: call Lerp every frame from current → target
+position = Vector3.Lerp(position, target, 5f * Time.deltaTime);
+```
+
+---
+
+#### **Linear (Constant Speed)** — "Steady and predictable"
+
+Use when something should move at an **even, mechanical pace**:
+
+| Game Feature | Why linear works |
+|---|---|
+| Loading bar / progress bar | Should fill at a steady rate |
+| Elevator moving between floors | Constant speed, no speeding up or slowing down |
+| Timer countdown visual | Even ticking |
+| Conveyor belt objects | Steady mechanical movement |
+| Lerping a color over exactly 2 seconds | Even fade from red to blue |
+
+```csharp
+// Linear: slide t from 0 to 1 over a fixed duration
+float t = elapsedTime / totalDuration;  // goes 0 → 1 evenly
+color = Color.Lerp(startColor, endColor, t);
+```
+
+---
+
+#### **Ease-In (Slow → Fast)** — "Winding up / Building power"
+
+Use when something needs to **build momentum** before reaching full speed:
+
+| Game Feature | Why ease-in works |
+|---|---|
+| Car accelerating from stop | Slow start, then vroom! |
+| Charging a punch/attack | Slow windup, then STRIKE |
+| Rocket launch | Rumbles slowly, then shoots up |
+| Bowling ball rolling | Slow push, picks up speed down the lane |
+| Trap door opening | Creaks open slowly, then swings wide |
+
+```csharp
+// Ease-in: make t grow slowly at first, then fast
+float t = elapsedTime / totalDuration;
+float easedT = t * t;  // squaring makes small values SMALLER (slow start)
+position = Vector3.Lerp(start, end, easedT);
+```
+
+**Why does `t * t` work?**
+```
+t = 0.1  → t*t = 0.01   (barely moved!)
+t = 0.3  → t*t = 0.09   (still slow)
+t = 0.5  → t*t = 0.25   (only 25% there at halfway point)
+t = 0.9  → t*t = 0.81   (NOW it's moving fast!)
+t = 1.0  → t*t = 1.0    (arrived)
+```
+
+---
+
+#### **Ease-In-Out (Slow → Fast → Slow)** — "Smooth start and stop"
+
+Use when something should **gently start AND gently stop**:
+
+| Game Feature | Why ease-in-out works |
+|---|---|
+| Camera panning in a cutscene | Smooth dramatic movement |
+| Door opening and closing | Starts slow, speeds up, slows at end |
+| Character turning 180° | Doesn't snap — eases into and out of the turn |
+| Menu transition / page flip | Feels polished and professional |
+| Moving platform (ride-on) | Doesn't jerk the player at start or stop |
+
+```csharp
+// Ease-in-out: slow at both ends, fast in the middle
+float t = elapsedTime / totalDuration;
+float easedT = t < 0.5f
+    ? 2f * t * t                        // first half: ease-in (slow start)
+    : 1f - Mathf.Pow(-2f * t + 2f, 2) / 2f;  // second half: ease-out (slow stop)
+position = Vector3.Lerp(start, end, easedT);
+```
+
+---
+
+#### **Quick Reference**
+
+```
+Ease-out:     ●●●●●●●●━━━━━━━━━━━────────────  (our camera)
+              FAST start          SLOW end
+
+Linear:       ●───●───●───●───●───●───●───●───  (progress bar)
+              constant speed throughout
+
+Ease-in:      ────────────━━━━━━━━━━━●●●●●●●●●  (charging attack)
+              SLOW start            FAST end
+
+Ease-in-out:  ────━━━━●●●●●●●●●●●●●●━━━━────── (cutscene camera)
+              slow   FAST middle    slow
+```
+
+---
+
+### �🎯 Lerp for Smooth Following
 
 In our camera:
 
@@ -1565,6 +1769,8 @@ Add mouse control to your camera:
 
 ## 📅 Week 6 Structure (60 minutes)
 
+**Today's Goal:** Last week we got our player moving with WASD and a camera that follows from behind. This week, we're adding **mouse control** to the camera so you can look around — just like in real games. You'll learn how 3D rotation works (Euler angles & Quaternions), read mouse input through the Input System, and upgrade your `CameraFollow.cs` to orbit around the player. By the end, moving the mouse will spin the camera around your character, with limits so it can't flip upside down.
+
 | Time | Topic |
 |------|-------|
 | 0-10 min | Understanding 3D Rotation (Euler vs Quaternions) |
@@ -1578,16 +1784,11 @@ Add mouse control to your camera:
 
 ## Part 1: Understanding 3D Rotation (10 minutes)
 
-### 🌐 Why is Rotation Confusing?
+### 🌐 2D vs 3D Rotation
 
-In 2D, rotation is simple: one number (angle in degrees).
+In 2D games, rotation is just **one number** — an angle in degrees (like turning a steering wheel).
 
-In 3D, rotation is complicated:
-- THREE axes to rotate around (X, Y, Z)
-- Order of rotations matters!
-- Multiple ways to represent rotation
-
-Let's break it down simply.
+In 3D, you need **three numbers** because you can rotate around three axes (X, Y, Z). That's all — just more axes to think about. Unity gives us a simple way to handle it, so let's learn the names.
 
 ---
 
@@ -1595,73 +1796,73 @@ Let's break it down simply.
 
 **Euler Angles** = Three rotation values (X, Y, Z) in degrees
 
-```csharp
-// Euler angles are just three numbers
-Vector3 rotation = new Vector3(30, 45, 0);
-//                              ↑   ↑   ↑
-//                              X   Y   Z
-```
+**What each axis does — try these with your own head right now!**
 
-**What each axis does (imagine a person):**
+| Axis | Name | Try This! | What Happens |
+|------|------|-----------|-------------|
+| X | **Pitch** | Nod your head "yes" | Your head tilts up and down |
+| Y | **Yaw** | Shake your head "no" | Your head turns left and right |
+| Z | **Roll** | Tilt your head like a confused dog | Your head tilts sideways |
 
-| Axis | Name | Movement | Human Example |
-|------|------|----------|---------------|
-| X | **Pitch** | Look up/down | Nodding "yes" |
-| Y | **Yaw** | Look left/right | Shaking head "no" |
-| Z | **Roll** | Tilt head | Confused dog look |
-
-**For a camera, we only use Pitch (X) and Yaw (Y)!**
+**For our camera, we only care about Pitch and Yaw!** (No Roll — we don't want a tilted camera.)
 
 ---
 
-### 🎯 Practical Example
+### 🎯 Using Euler Angles in Code
 
 ```csharp
-// Look 30 degrees up
-transform.eulerAngles = new Vector3(-30, 0, 0);
-
-// Turn 45 degrees right
+// Turn 45 degrees to the right
 transform.eulerAngles = new Vector3(0, 45, 0);
+//                                  ↑   ↑   ↑
+//                               Pitch Yaw Roll
 
-// Look up AND turn right
+// Look up 30 degrees AND turn right 45 degrees
 transform.eulerAngles = new Vector3(-30, 45, 0);
 ```
 
-**Note:** Looking UP is NEGATIVE pitch (counterintuitive!)
-- Pitch = -30 → Looking up
-- Pitch = 0 → Looking at horizon
-- Pitch = +30 → Looking down
+**⚠️ One weird thing to memorize:**
+
+Looking **UP** uses a **negative** number. Looking **DOWN** uses a positive number. It's backwards from what you'd expect — that's just how Unity works. Don't worry about *why*, just remember:
+
+```
+Pitch = -30  → Looking UP      ↑
+Pitch =   0  → Looking straight →
+Pitch = +30  → Looking DOWN    ↓
+```
+
+**Think of it like this:** positive pitch = your chin drops toward your chest (looking down). Negative = chin goes up (looking up).
 
 ---
 
-### 🔮 Quaternions - What Unity Uses Internally
+### 🔮 Quaternions - Unity's Secret Math
 
-Unity stores rotations as **Quaternions** (4D math objects).
+Behind the scenes, Unity doesn't actually store rotations as Euler angles. It uses something called **Quaternions** — a math format that prevents weird glitches.
 
-**You don't need to understand the math!** Just know:
-- Quaternions avoid weird rotation problems
-- Unity handles them automatically
-- You convert Euler angles to Quaternions when needed
+**You do NOT need to understand how Quaternions work.** Just know one thing:
 
 ```csharp
-// We think in Euler angles (easy!)
-float pitch = 30f;  // Look down 30 degrees
-float yaw = 45f;    // Turn right 45 degrees
+// YOU think in degrees (easy for humans):
+float pitch = 30f;
+float yaw = 45f;
 
-// Convert to Quaternion when applying
+// Then hand it to Unity using this converter:
 transform.rotation = Quaternion.Euler(pitch, yaw, 0);
 ```
+
+`Quaternion.Euler()` is your translator — you give it degrees, it gives Unity what it needs.
 
 ---
 
 ### 💡 Key Takeaway
 
 ```
-YOU work with: Euler angles (degrees)
-UNITY stores: Quaternions
+YOU think in:    degrees (Euler angles)
+UNITY needs:     Quaternions
 
-Use Quaternion.Euler() to convert!
+Translator:      Quaternion.Euler(pitch, yaw, 0)
 ```
+
+That's it! You'll use `Quaternion.Euler()` in the camera script and it'll just work.
 
 ---
 
