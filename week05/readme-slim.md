@@ -2478,7 +2478,18 @@ public class PlayerController : MonoBehaviour
             // ★ NEW — Rotate player to face movement direction
             // LookRotation: "give me a rotation that faces this direction"
             // Slerp: smoothly interpolate between current and target rotation
-            //   (10f * Time.deltaTime ≈ snappy but not instant)
+            //
+            // The third parameter (10f * Time.deltaTime) controls turn speed:
+            //   At 60 FPS: 10 * 0.016 = 0.16 → each frame, rotate 16% of
+            //   the remaining angle toward the target.
+            //
+            //   This creates a smooth curve: fast at first (large angle left),
+            //   slower as it arrives (small angle left). The result is a turn
+            //   that feels quick and responsive, but not an instant jump.
+            //
+            //   Lower values (e.g. 2f) = slow, floaty turn
+            //   Higher values (e.g. 50f) = almost instant snap
+            //   10f = a good middle ground — fast but still visibly smooth
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
             transform.rotation = Quaternion.Slerp(
                 transform.rotation, targetRotation, 10f * Time.deltaTime
