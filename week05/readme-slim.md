@@ -1048,9 +1048,29 @@ public Vector3 offset = new Vector3(0, 2, -5);
 ## Part 6: Demo - Setting Up Your Project (10 minutes)
 
 Now let's apply everything we learned! Since you already have the scripts, we'll focus on:
-1. Setting up Input Actions
-2. Configuring the scene
-3. Attaching and configuring scripts
+1. Verifying the Input System Package is active
+2. Setting up Input Actions
+3. Configuring the scene
+4. Attaching and configuring scripts
+
+---
+
+### 📝 Step 0: Verify Active Input Handler
+
+> **⚠️ Critical:** Unity can use the **old Input Manager**, the **new Input System Package**, or **Both**. Our scripts use the new Input System Package exclusively. If this setting is wrong, your controls won't work!
+
+**In Unity Editor:**
+
+1. Go to **Edit → Project Settings → Player**
+2. Expand **Other Settings**
+3. Scroll down to **Configuration**
+4. Find **Active Input Handling** and set it to **Input System Package (New)**
+   - Do NOT leave it on "Input Manager (Old)" or "Both"
+   - Unity will ask to restart the Editor — click **Yes**
+
+**Why not "Both"?**
+- "Both" loads the legacy Input Manager alongside the new Input System, which wastes resources and can cause confusing warnings in the Console
+- Since our scripts only use `UnityEngine.InputSystem`, we only need the new system
 
 ---
 
@@ -1237,10 +1257,11 @@ Project Window:
 #### Problem: Player doesn't move at all
 
 **Check:**
-1. Is PlayerController script attached to Player?
-2. Does PlayerInputActions.cs exist? (Generate C# Class checked?)
-3. Did you click in the Game window? (Unity needs focus)
-4. Any errors in Console window?
+1. Is **Active Input Handling** set to **Input System Package (New)**? (Edit → Project Settings → Player → Other Settings → Configuration). If it's set to "Input Manager (Old)" or "Both", change it to "Input System Package (New)" and restart Unity.
+2. Is PlayerController script attached to Player?
+3. Does PlayerInputActions.cs exist? (Generate C# Class checked?)
+4. Did you click in the Game window? (Unity needs focus)
+5. Any errors in Console window?
 
 ---
 
@@ -1953,6 +1974,8 @@ void Update()
 
 Open `CameraFollow.cs` and we'll add mouse look!
 
+> **📌 Note:** This step only upgrades the **camera**. After this, the camera will orbit with the mouse, but WASD movement will still go in the player's own forward direction — not the camera's. That's expected! We'll upgrade `HandleMovement()` in `PlayerController.cs` in **Part 5** to make movement follow the camera.
+
 **Replace your entire CameraFollow.cs with this upgraded version:**
 
 ```csharp
@@ -1960,7 +1983,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Week 5B: Camera with mouse look and smooth follow
+/// Week 6: Camera with mouse look and smooth follow
 /// Orbits around player based on mouse input
 /// </summary>
 public class CameraFollow : MonoBehaviour
@@ -1996,11 +2019,11 @@ public class CameraFollow : MonoBehaviour
     [Range(0.5f, 10f)]
     public float mouseSensitivity = 2f;
     
-    [Tooltip("Minimum vertical angle (looking down) - can't go below this")]
+    [Tooltip("Minimum vertical angle (looking up) - can't go above this")]
     [Range(-89f, 0f)]
     public float minPitch = -60f;
     
-    [Tooltip("Maximum vertical angle (looking up) - can't go above this")]
+    [Tooltip("Maximum vertical angle (looking down) - can't go below this")]
     [Range(0f, 89f)]
     public float maxPitch = 60f;
     
@@ -2030,7 +2053,6 @@ public class CameraFollow : MonoBehaviour
     
     void Awake()
     {
-        // Create input actions
         inputActions = new PlayerInputActions();
     }
     
@@ -2046,7 +2068,6 @@ public class CameraFollow : MonoBehaviour
     
     void Start()
     {
-        // Safety check
         if (target == null)
         {
             Debug.LogError("CameraFollow: No target assigned! Drag Player to Target field.");
@@ -2054,7 +2075,7 @@ public class CameraFollow : MonoBehaviour
             return;
         }
         
-        // Lock cursor to center of screen (for FPS/TPS controls)
+        // Lock cursor to center of screen (for TPS controls)
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -2071,24 +2092,24 @@ public class CameraFollow : MonoBehaviour
     // MOUSE LOOK
     // ============================================
     
-    /// <summary>
-    /// Reads mouse input and updates rotation angles
-    /// </summary>
     private void HandleMouseLook()
     {
         // Read mouse movement
         Vector2 mouseDelta = inputActions.Player.Look.ReadValue<Vector2>();
         
-        // Apply sensitivity (scale the movement)
+        // Apply sensitivity
         float mouseX = mouseDelta.x * mouseSensitivity;
         float mouseY = mouseDelta.y * mouseSensitivity;
         
-        // Update our rotation angles
-        yaw += mouseX;         // Add horizontal movement to yaw
-        pitch -= mouseY;       // Subtract vertical (mouse up = look up = negative pitch)
+        // Update rotation angles
+        // NOTE: Mouse axis and rotation axis are PERPENDICULAR:
+        //   Mouse X (left/right) → Yaw   (rotation around Y axis) — like shaking head "no"
+        //   Mouse Y (up/down)    → Pitch  (rotation around X axis) — like nodding head "yes"
+        //   Sliding along one axis spins around the OTHER axis!
+        yaw += mouseX;         // Horizontal: add mouse X
+        pitch -= mouseY;       // Vertical: subtract mouse Y (mouse up = look up = negative pitch)
         
-        // Clamp pitch to prevent camera flipping
-        // Mathf.Clamp keeps a value between min and max
+        // Clamp pitch so camera can't flip upside down
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
     }
     
@@ -2096,51 +2117,49 @@ public class CameraFollow : MonoBehaviour
     // CAMERA POSITION
     // ============================================
     
-    /// <summary>
-    /// Positions camera behind player based on rotation angles
-    /// </summary>
     private void UpdateCameraPosition()
     {
-        // 1. Create rotation from our angles
+        // 1. Create rotation from our angles (this is Quaternion.Euler!)
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
         
-        // 2. Calculate offset position
-        //    We start with a vector pointing backward and up
-        //    Then rotate it by our rotation
+        // 2. Start with offset pointing backward and up, then rotate it
+        //    Think of this as a "selfie stick" attached to the player:
+        //      -Z = behind player, +Y = above player (default 3rd person view)
+        //    If we didn't push the camera out, it would sit ON the player!
+        //
+        //    Then rotation * offset "swings the stick" around the player:
+        //      yaw = 0°   → camera directly behind
+        //      yaw = 90°  → camera to the right
+        //      yaw = 180° → camera in front
+        //      yaw = 270° → camera to the left
         Vector3 offset = new Vector3(0, height, -distance);
         Vector3 rotatedOffset = rotation * offset;
         
-        // 3. Calculate desired camera position
+        // 3. Position camera at player + rotated offset
         Vector3 desiredPosition = target.position + rotatedOffset;
         
-        // 4. Smoothly move to desired position
+        // 4. Smooth follow (rubber band style)
         transform.position = Vector3.Lerp(
             transform.position,
             desiredPosition,
             smoothSpeed * Time.deltaTime
         );
         
-        // 5. Look at player
+        // 5. Always look at the player
         Vector3 lookAtPoint = target.position + lookAtOffset;
         transform.LookAt(lookAtPoint);
     }
     
     // ============================================
-    // PUBLIC METHODS
+    // CURSOR HELPERS
     // ============================================
     
-    /// <summary>
-    /// Call this to unlock cursor (for menus, pause, etc.)
-    /// </summary>
     public void UnlockCursor()
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
     
-    /// <summary>
-    /// Call this to lock cursor again (when unpausing)
-    /// </summary>
     public void LockCursor()
     {
         Cursor.lockState = CursorLockMode.Locked;
@@ -2164,6 +2183,7 @@ public class CameraFollow : MonoBehaviour
    - Move mouse up/down → Camera looks up/down
    - Try looking straight up → Should stop at max angle
    - Try looking straight down → Should stop at min angle
+   - ⚠️ WASD still moves in the player's direction, not the camera's — **this is expected for now** (fixed in Part 5)
 
 5. **To exit Play mode and get your cursor back:**
    - Press **Escape** key, OR
@@ -2275,80 +2295,267 @@ Vector3 result = rotation * offset;  // Now (5, 0, 0) - points right!
 
 ---
 
-## Part 5: Making Player Face Camera Direction (Optional)
+> **⚠️ Notice something weird?** After testing Part 4, you'll see the camera orbits around the player with the mouse — great! But WASD movement still goes in the **player's** forward direction, not the **camera's** direction. Press W and the player walks "north" no matter where you point the camera. That's because `HandleMovement()` in `PlayerController.cs` still uses `transform.forward` / `transform.right` (the player's own facing direction) from the Week 5 version. Part 5 below fixes this by switching to `cameraTransform.forward` / `cameraTransform.right` so movement follows the camera.
 
-Right now, the player doesn't turn - only the camera orbits. 
+---
 
-For many games, you want the player to face the direction they're moving (relative to camera).
+## Part 5: Making Player Face Camera Direction
 
-### 📝 Upgrade PlayerController for Camera-Relative Movement
+Right now, the player doesn't turn — only the camera orbits. Try it: rotate the camera to look left, then press W. The player still walks "north" instead of to the left. That feels awful!
 
-**Open `PlayerController.cs` and make these changes:**
+### 🔍 Understanding The Problem
 
-**1. Add a camera reference at the top:**
+Look at your Week 5 `HandleMovement()`:
+
 ```csharp
-[Header("Camera Reference")]
-[Tooltip("The camera to use for movement direction (leave empty to auto-find)")]
-public Transform cameraTransform;
+// Week 5 version — movement relative to PLAYER
+moveDirection = transform.forward * input.y + transform.right * input.x;
 ```
 
-**2. Add this to Awake():**
-```csharp
-// Auto-find camera if not assigned
-if (cameraTransform == null)
-{
-    Camera mainCam = Camera.main;
-    if (mainCam != null)
-    {
-        cameraTransform = mainCam.transform;
-    }
-}
-```
+`transform.forward` is the **player's** facing direction. It never changes when you move the camera! That's why WASD always moves the same world direction no matter where the camera points.
 
-**3. Update HandleMovement() to use camera direction:**
+**The fix:** Replace `transform.forward` / `transform.right` with `cameraTransform.forward` / `cameraTransform.right`. Then pressing W always walks toward where the **camera** is looking — exactly how third-person games work.
+
+We also need:
+- A **reference to the camera's Transform** so we can read its direction
+- **Flatten** the camera's forward/right to the horizontal plane (remove Y) — otherwise looking down would push the player into the ground!
+- **Rotate the player** to face the movement direction (so the character model turns to match)
+
+### 📝 Replace Your Full PlayerController.cs
+
+Replace your **entire** `PlayerController.cs` with this upgraded version. The key changes from Week 5 are:
+
+1. **New field:** `cameraTransform` — reference to the camera
+2. **New in Awake():** Auto-find the camera if not assigned in Inspector
+3. **Upgraded HandleMovement():** Uses camera directions instead of player directions, adds dead zone, adds player rotation
+
 ```csharp
-private void HandleMovement()
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+/// <summary>
+/// Week 5: Basic player movement using Character Controller
+/// Handles WASD movement, sprint, and gravity
+/// </summary>
+public class PlayerController : MonoBehaviour
 {
-    Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
-    bool isSprinting = inputActions.Player.Sprint.IsPressed();
+    // =========================================================
+    // INSPECTOR FIELDS (Appear in Unity's Inspector panel)
+    // =========================================================
+
+    // ★ NEW — Week 6: Camera reference for camera-relative movement
+    [Header("Camera Reference")]
+    [Tooltip("The camera to use for movement direction (leave empty to auto-find)")]
+    public Transform cameraTransform;
     
-    if (input.magnitude < 0.1f)
+    [Header("Movement Settings")]
+    [Tooltip("Normal walking speed (units per second)")]
+    public float walkSpeed = 3f;
+    
+    [Tooltip("Sprint speed when holding Shift (units per second)")]
+    public float sprintSpeed = 6f;
+    
+    [Header("Gravity Settings")]
+    [Tooltip("Downward force when grounded (keeps player stuck to ground)")]
+    public float groundedGravity = -2f;
+    
+    [Header("Debug")]
+    [Tooltip("Show debug info in console")]
+    public bool showDebugInfo = false;
+    
+    // =========================================================
+    // PRIVATE VARIABLES (Only this script can access these)
+    // =========================================================
+    
+    private CharacterController characterController;
+    private PlayerInputActions inputActions;
+    
+    private float verticalVelocity = 0f;
+    private Vector3 moveDirection = Vector3.zero;
+    
+    // =========================================================
+    // AWAKE
+    // =========================================================
+    
+    void Awake()
     {
-        moveDirection = Vector3.zero;
-        return;
-    }
-    
-    // Get camera forward/right (flattened to horizontal plane)
-    Vector3 cameraForward = cameraTransform.forward;
-    Vector3 cameraRight = cameraTransform.right;
-    
-    // Remove vertical component (we only want horizontal movement)
-    cameraForward.y = 0;
-    cameraRight.y = 0;
-    cameraForward.Normalize();
-    cameraRight.Normalize();
-    
-    // Calculate movement relative to camera
-    moveDirection = cameraForward * input.y + cameraRight * input.x;
-    
-    if (moveDirection.magnitude > 0.1f)
-    {
-        moveDirection.Normalize();
+        // ★ NEW — Week 6: Auto-find camera if not assigned in Inspector
+        if (cameraTransform == null)
+        {
+            Camera mainCam = Camera.main;
+            if (mainCam != null)
+            {
+                cameraTransform = mainCam.transform;
+            }
+        }
+
+        characterController = GetComponent<CharacterController>();
         
-        // Rotate player to face movement direction
-        Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 10f * Time.deltaTime);
+        if (characterController == null)
+        {
+            Debug.LogError("PlayerController requires a CharacterController component!");
+            enabled = false;
+            return;
+        }
+        
+        inputActions = new PlayerInputActions();
     }
     
-    float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
-    moveDirection *= currentSpeed;
+    // =========================================================
+    // ON ENABLE / ON DISABLE
+    // =========================================================
+    
+    void OnEnable()
+    {
+        inputActions.Player.Enable();
+    }
+    
+    void OnDisable()
+    {
+        inputActions.Player.Disable();
+    }
+    
+    // =========================================================
+    // UPDATE
+    // =========================================================
+    
+    void Update()
+    {
+        HandleMovement();
+        HandleGravity();
+        ApplyMovement();
+        
+        if (showDebugInfo)
+        {
+            DebugInfo();
+        }
+    }
+    
+    // =========================================================
+    // ★ UPGRADED — Week 6: Camera-Relative Movement
+    // =========================================================
+    // Was: moveDirection = transform.forward * input.y + transform.right * input.x;
+    // Now: moveDirection = cameraForward * input.y + cameraRight * input.x;
+    
+    private void HandleMovement()
+    {
+        Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
+        bool isSprinting = inputActions.Player.Sprint.IsPressed();
+
+        // ★ NEW — Dead zone check
+        // Gamepad sticks drift slightly when idle (e.g., 0.02, -0.01).
+        // Without this, the character would creep in random directions.
+        // For keyboard this is less critical (values are 0 or 1), but
+        // good practice since the Input System supports both.
+        if (input.magnitude < 0.1f)
+        {
+            moveDirection = Vector3.zero;
+            return;
+        }
+
+        // ★ CHANGED — Get CAMERA forward/right instead of player's
+        Vector3 cameraForward = cameraTransform.forward;
+        Vector3 cameraRight = cameraTransform.right;
+
+        // Flatten to horizontal plane (remove Y component)
+        // Why? If the camera is pitched down 45°, its forward vector
+        // points into the ground. We only want the horizontal part
+        // so the player moves along the ground, not into it.
+        cameraForward.y = 0;
+        cameraRight.y = 0;
+        cameraForward.Normalize();
+        cameraRight.Normalize();
+        
+        // ★ CHANGED — Use camera directions instead of transform directions
+        // Week 5: moveDirection = transform.forward * input.y + transform.right * input.x;
+        // Week 6: moveDirection = cameraForward * input.y + cameraRight * input.x;
+        moveDirection = cameraForward * input.y + cameraRight * input.x;
+        
+        if (moveDirection.magnitude > 0.1f)
+        {
+            moveDirection.Normalize();
+
+            // ★ NEW — Rotate player to face movement direction
+            // LookRotation: "give me a rotation that faces this direction"
+            // Slerp: smoothly interpolate between current and target rotation
+            //   (10f * Time.deltaTime ≈ snappy but not instant)
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation, targetRotation, 10f * Time.deltaTime
+            );
+        }
+        
+        float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
+        moveDirection *= currentSpeed;
+    }
+    
+    // =========================================================
+    // HANDLE GRAVITY (unchanged from Week 5)
+    // =========================================================
+    
+    private void HandleGravity()
+    {
+        if (characterController.isGrounded)
+        {
+            verticalVelocity = groundedGravity;
+        }
+        else
+        {
+            verticalVelocity += Physics.gravity.y * Time.deltaTime;
+            verticalVelocity = Mathf.Max(verticalVelocity, -50f);
+        }
+    }
+    
+    // =========================================================
+    // APPLY MOVEMENT (unchanged from Week 5)
+    // =========================================================
+    
+    private void ApplyMovement()
+    {
+        Vector3 movement = moveDirection * Time.deltaTime;
+        movement.y = verticalVelocity * Time.deltaTime;
+        characterController.Move(movement);
+    }
+    
+    // =========================================================
+    // DEBUG (unchanged from Week 5)
+    // =========================================================
+    
+    private void DebugInfo()
+    {
+        Vector2 input = inputActions.Player.Move.ReadValue<Vector2>();
+        Debug.Log($"Input: {input} | Grounded: {characterController.isGrounded} | " +
+                  $"Vertical Velocity: {verticalVelocity:F2} | " +
+                  $"Speed: {moveDirection.magnitude:F2}");
+    }
+    
+    // =========================================================
+    // PUBLIC GETTERS (unchanged from Week 5)
+    // =========================================================
+    
+    public bool IsGrounded => characterController.isGrounded;
+    public bool IsMoving => moveDirection.magnitude > 0.1f;
+    public float CurrentSpeed => moveDirection.magnitude;
 }
 ```
 
-**Now:**
-- W moves toward where camera is looking
-- Player turns to face movement direction
-- Feels like a real third-person game!
+### What Changed (Summary)
+
+| Area | Week 5 | Week 6 |
+|------|--------|--------|
+| **Camera ref** | None | `public Transform cameraTransform;` |
+| **Awake** | — | Auto-finds `Camera.main` |
+| **Move direction** | `transform.forward` / `transform.right` | `cameraForward` / `cameraRight` (flattened) |
+| **Dead zone** | None | `if (input.magnitude < 0.1f) return;` |
+| **Player rotation** | None | `Quaternion.LookRotation` + `Slerp` |
+
+### ✅ Test It
+
+1. **Play** the scene
+2. **Rotate** the camera with the mouse
+3. **Press W** — player should now walk toward where the camera is pointing
+4. **Move diagonally** — player turns smoothly to face that direction
+5. The character model should always face the direction it's moving
 
 ---
 
@@ -2359,7 +2566,7 @@ private void HandleMovement()
 - ✅ Camera orbits around player
 - ✅ Vertical angle limits (no flipping)
 - ✅ Cursor locking
-- ✅ (Optional) Camera-relative movement
+- ✅ Camera-relative player movement (HandleMovement upgrade)
 
 ### What You Learned:
 - Euler angles (pitch, yaw, roll) for 3D rotation
@@ -2429,9 +2636,50 @@ A **Raycast** shoots an invisible ray from one point in a direction and tells yo
        [X]   ← Camera WOULD be here, but wall blocks it
 ```
 
-**We use it to:**
+**Why do we need this?**
+
+Without a raycast, the camera just goes to its calculated position (e.g., 5 meters behind the player). But what if there's a wall between the player and that position?
+
+```
+Imagine this room from above:
+
+    ┌──────────────────────────┐
+    │          ROOM            │
+    │                          │
+    │     🧍 Player            │
+    │      ·                   │
+    │       ·                  │
+    │        ·  (5m back)      │
+    ██████████████████████████████  ← WALL
+    │          🎥 Camera       │
+    │        OTHER ROOM        │
+    └──────────────────────────┘
+
+The camera ends up on the OTHER SIDE of the wall!
+The player sees the inside of the wall — or nothing at all.
+```
+
+The fix: before placing the camera, shoot a ray from the player toward where the camera *wants* to be. If the ray hits a wall, place the camera at the wall instead:
+
+```
+    ┌──────────────────────────┐
+    │          ROOM            │
+    │                          │
+    │     🧍 Player            │
+    │      ·                   │
+    │       ·                  │
+    │        🎥 Camera (moved) │
+    ██████████████████████████████  ← WALL (ray hit here!)
+    │                          │
+    │        OTHER ROOM        │
+    └──────────────────────────┘
+
+Now the camera stays on the SAME side as the player!
+```
+
+**In short, we use the ray to:**
 1. Shoot ray from player toward camera position
-2. If ray hits wall, put camera at hit point
+2. If ray hits wall, put camera at hit point (stay in front of wall)
 3. If ray hits nothing, camera goes to normal position
 
 ---
