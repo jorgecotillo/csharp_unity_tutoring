@@ -2609,411 +2609,501 @@ Stop the camera from going through walls:
 
 ## 📅 Week 7 Structure (60 minutes)
 
-| Time | Topic |
-|------|-------|
-| 0-10 min | Understanding Raycasting |
-| 10-25 min | Basic Camera Collision |
-| 25-40 min | Smoother Collision with SphereCast |
-| 40-50 min | Polish & Fine-tuning |
-| 50-60 min | Testing & Integration |
+| Time | What | Format |
+|------|------|--------|
+| 0-5 min | See the problem — walk camera into a wall | **Demo + Talk** |
+| 5-20 min | Add collision detection (SphereCast) | **Code** |
+| 20-30 min | Test with walls, tweak settings | **Experiment** |
+| 30-40 min | Add smooth distance transitions | **Code** |
+| 40-50 min | Test smooth vs snappy, tune values | **Experiment** |
+| 50-60 min | Troubleshooting + homework | **Wrap up** |
 
 ---
 
-## Part 1: Understanding Raycasting (10 minutes)
+## Part 1: See the Problem (5 minutes)
 
-### 🎯 What is a Raycast?
+### 🎯 What's Wrong Right Now?
 
-A **Raycast** shoots an invisible ray from one point in a direction and tells you if it hits something.
+Before writing any code, let's see the bug:
 
-```
-     Start (Player)
-         |
-         |  ← Ray travels this direction
-         |
-         ↓
-       Wall  ← Ray HIT here!
-         
-       [X]   ← Camera WOULD be here, but wall blocks it
-```
+1. **Add a wall** to your scene (if you don't have one):
+   - GameObject → 3D Object → Cube
+   - Scale: (5, 3, 1)
+   - Position: (0, 1.5, 5)
 
-**Why do we need this?**
+2. **Press Play** and walk toward the wall
 
-Without a raycast, the camera just goes to its calculated position (e.g., 5 meters behind the player). But what if there's a wall between the player and that position?
+3. **Rotate the camera** so the wall is between you and the camera
+
+**What happens:** The camera goes *through* the wall. You see the inside of the wall, or nothing at all.
 
 ```
-Imagine this room from above:
-
     ┌──────────────────────────┐
     │          ROOM            │
-    │                          │
     │     🧍 Player            │
     │      ·                   │
-    │       ·                  │
-    │        ·  (5m back)      │
+    │       ·  (5m back)       │
     ██████████████████████████████  ← WALL
-    │          🎥 Camera       │
-    │        OTHER ROOM        │
+    │          🎥 Camera       │  ← On the WRONG side!
     └──────────────────────────┘
-
-The camera ends up on the OTHER SIDE of the wall!
-The player sees the inside of the wall — or nothing at all.
 ```
 
-The fix: before placing the camera, shoot a ray from the player toward where the camera *wants* to be. If the ray hits a wall, place the camera at the wall instead:
+**The fix:** Before placing the camera, shoot an invisible sphere from the player toward the camera position. If it hits a wall, shorten the camera distance:
 
 ```
     ┌──────────────────────────┐
     │          ROOM            │
-    │                          │
     │     🧍 Player            │
     │      ·                   │
-    │       ·                  │
-    │        🎥 Camera (moved) │
-    ██████████████████████████████  ← WALL (ray hit here!)
-    │                          │
-    │        OTHER ROOM        │
+    │       🎥 Camera (moved)  │  ← Stopped at the wall!
+    ██████████████████████████████  ← SphereCast hit here
     └──────────────────────────┘
-
-Now the camera stays on the SAME side as the player!
 ```
 
-**In short, we use the ray to:**
-1. Shoot ray from player toward camera position
-2. If ray hits wall, put camera at hit point (stay in front of wall)
-3. If ray hits nothing, camera goes to normal position
+### 💡 Key Concept: SphereCast
 
----
-
-### 📊 Raycast in Code
+`Physics.SphereCast` shoots a sphere along a line and tells you if it hits a collider. It's like a thick raycast — catches wall edges and corners that a thin ray would miss.
 
 ```csharp
-// The basic raycast
+// Shoot a sphere from point A in a direction
 RaycastHit hit;
-bool didHit = Physics.Raycast(
-    origin,      // Where to start (player position)
-    direction,   // Which way to shoot
-    out hit,     // Info about what was hit
-    distance     // Maximum distance to check
+bool blocked = Physics.SphereCast(
+    origin,       // Where to start
+    radius,       // How thick the sphere is
+    direction,    // Which way to shoot
+    out hit,      // Info about what was hit
+    maxDistance,   // How far to check
+    layerMask     // Which layers to collide with
 );
 
-if (didHit)
+if (blocked)
 {
-    // We hit something!
-    Debug.Log("Hit: " + hit.collider.name);
-    Debug.Log("Hit distance: " + hit.distance);
-    Debug.Log("Hit point: " + hit.point);
+    // hit.distance = how far before we hit the wall
+    // hit.point   = exact position of impact
 }
 ```
 
----
-
-### 🎓 RaycastHit - What Did We Hit?
-
-When a raycast hits something, it fills a `RaycastHit` with info:
-
-| Property | What It Is |
-|----------|-----------|
-| `hit.point` | Exact position where ray hit |
-| `hit.distance` | How far from start to hit |
-| `hit.normal` | Direction pointing out of surface |
-| `hit.collider` | The collider that was hit |
-| `hit.transform` | The transform of object hit |
+That's all you need to know. Let's add it to the camera.
 
 ---
 
-## Part 2: Basic Camera Collision (15 minutes)
+## Part 2: Add Collision Detection (15 minutes)
 
-### 📝 Step 1: Add Collision Detection to Camera
+### 📝 Replace Your Full CameraFollow.cs
 
-**Open `CameraFollow.cs` and add these fields:**
+Replace your **entire** `CameraFollow.cs` with this upgraded version. Changes from Week 6 are marked with ★:
 
 ```csharp
-// Add at top with other fields
+using UnityEngine;
+using UnityEngine.InputSystem;
 
-[Header("Collision Settings")]
-[Tooltip("What layers should block the camera? (walls, ground, etc.)")]
-public LayerMask collisionMask;
-
-[Tooltip("Minimum distance from player when blocked")]
-[Range(0.5f, 2f)]
-public float minDistance = 1f;
-
-[Tooltip("How far to stay from walls (prevents clipping)")]
-[Range(0.1f, 0.5f)]
-public float collisionBuffer = 0.2f;
-```
-
----
-
-### 📝 Step 2: Create Collision Method
-
-Add this method to `CameraFollow.cs`:
-
-```csharp
 /// <summary>
-/// Checks for walls between player and camera
-/// Returns the safe distance (closer if wall is blocking)
+/// Week 7: Camera with mouse look, orbit, and collision detection
+/// Orbits around player, pulls forward when walls block the view
 /// </summary>
-private float GetCollisionAdjustedDistance(Vector3 playerPosition, Vector3 direction)
+public class CameraFollow : MonoBehaviour
 {
-    // Default to full distance
-    float adjustedDistance = distance;
+    // ============================================
+    // TARGET SETTINGS
+    // ============================================
     
-    // Cast ray from player toward camera
-    RaycastHit hit;
-    if (Physics.Raycast(playerPosition, direction, out hit, distance, collisionMask))
+    [Header("Target Settings")]
+    [Tooltip("The player to follow")]
+    public Transform target;
+    
+    [Tooltip("Offset for look-at point (look at head, not feet)")]
+    public Vector3 lookAtOffset = new Vector3(0, 1.5f, 0);
+    
+    // ============================================
+    // CAMERA DISTANCE
+    // ============================================
+    
+    [Header("Camera Distance")]
+    [Tooltip("How far camera is behind player")]
+    public float distance = 5f;
+    
+    [Tooltip("How high camera is above player")]
+    public float height = 2f;
+    
+    // ============================================
+    // MOUSE LOOK SETTINGS
+    // ============================================
+    
+    [Header("Mouse Look Settings")]
+    [Tooltip("How fast camera rotates with mouse (1-10)")]
+    [Range(0.5f, 10f)]
+    public float mouseSensitivity = 2f;
+    
+    [Tooltip("Minimum vertical angle (looking up)")]
+    [Range(-89f, 0f)]
+    public float minPitch = -60f;
+    
+    [Tooltip("Maximum vertical angle (looking down)")]
+    [Range(0f, 89f)]
+    public float maxPitch = 60f;
+    
+    // ============================================
+    // ★ NEW — Week 7: Collision Settings
+    // ============================================
+    
+    [Header("Collision Settings")]
+    [Tooltip("What layers should block the camera? (walls, ground, etc.)")]
+    public LayerMask collisionMask;
+    
+    [Tooltip("Minimum distance from player when blocked")]
+    [Range(0.5f, 2f)]
+    public float minDistance = 1f;
+    
+    [Tooltip("How far to stay from walls (prevents clipping)")]
+    [Range(0.1f, 0.5f)]
+    public float collisionBuffer = 0.2f;
+    
+    [Tooltip("Radius of collision sphere (larger = catches corners better)")]
+    [Range(0.1f, 0.5f)]
+    public float collisionRadius = 0.2f;
+    
+    // ============================================
+    // SMOOTHING
+    // ============================================
+    
+    [Header("Smoothing")]
+    [Tooltip("How quickly camera moves to target position")]
+    [Range(1f, 20f)]
+    public float smoothSpeed = 10f;
+    
+    // ============================================
+    // PRIVATE VARIABLES
+    // ============================================
+    
+    private PlayerInputActions inputActions;
+    
+    private float yaw = 0f;
+    private float pitch = 20f;
+    
+    // ★ NEW — Week 7: Smooth distance tracking
+    private float currentDistance;
+    
+    // ============================================
+    // UNITY LIFECYCLE
+    // ============================================
+    
+    void Awake()
     {
-        // Hit something! Use hit distance minus buffer
-        adjustedDistance = hit.distance - collisionBuffer;
-        
-        // Don't get closer than minimum
-        adjustedDistance = Mathf.Max(adjustedDistance, minDistance);
+        inputActions = new PlayerInputActions();
     }
     
-    return adjustedDistance;
+    void OnEnable()
+    {
+        inputActions.Player.Enable();
+    }
+    
+    void OnDisable()
+    {
+        inputActions.Player.Disable();
+    }
+    
+    void Start()
+    {
+        if (target == null)
+        {
+            Debug.LogError("CameraFollow: No target assigned! Drag Player to Target field.");
+            enabled = false;
+            return;
+        }
+        
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        
+        // ★ NEW — Week 7: Start at full distance
+        currentDistance = distance;
+    }
+    
+    void LateUpdate()
+    {
+        if (target == null) return;
+        
+        HandleMouseLook();
+        UpdateCameraPosition();
+    }
+    
+    // ============================================
+    // MOUSE LOOK (unchanged from Week 6)
+    // ============================================
+    
+    private void HandleMouseLook()
+    {
+        Vector2 mouseDelta = inputActions.Player.Look.ReadValue<Vector2>();
+        
+        float mouseX = mouseDelta.x * mouseSensitivity;
+        float mouseY = mouseDelta.y * mouseSensitivity;
+        
+        yaw += mouseX;
+        pitch -= mouseY;
+        
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+    }
+    
+    // ============================================
+    // ★ UPGRADED — Week 7: Camera Position with Collision
+    // ============================================
+    
+    private void UpdateCameraPosition()
+    {
+        // 1. Create rotation from our angles (same as Week 6)
+        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
+        
+        // 2. Calculate the direction from player to where camera wants to be
+        //    offset points backward and up; rotation swings it around the player
+        Vector3 offset = new Vector3(0, height, -distance);
+        Vector3 direction = (rotation * offset).normalized;
+        
+        // 3. ★ NEW — Check for walls between player and camera
+        Vector3 playerHead = target.position + lookAtOffset;
+        float safeDistance = GetCollisionAdjustedDistance(playerHead, direction);
+        
+        // 4. ★ NEW — Smooth the distance change (no jarring snaps)
+        //    When wall appears: camera pulls in quickly
+        //    When wall clears: camera eases back out
+        currentDistance = Mathf.Lerp(currentDistance, safeDistance, smoothSpeed * Time.deltaTime);
+        
+        // 5. Position camera at the (possibly shortened) distance
+        Vector3 desiredPosition = playerHead + direction * currentDistance;
+        
+        // 6. Smooth position follow (rubber band)
+        transform.position = Vector3.Lerp(
+            transform.position,
+            desiredPosition,
+            smoothSpeed * Time.deltaTime
+        );
+        
+        // 7. Always look at the player
+        transform.LookAt(playerHead);
+    }
+    
+    // ============================================
+    // ★ NEW — Week 7: Collision Detection
+    // ============================================
+    
+    /// <summary>
+    /// Shoots a sphere from the player toward the camera.
+    /// If it hits a wall, returns a shorter distance so the camera
+    /// stays in front of the wall instead of going through it.
+    /// </summary>
+    private float GetCollisionAdjustedDistance(Vector3 startPosition, Vector3 direction)
+    {
+        // Start with the full desired distance
+        // (distance² + height² gives the actual length of the offset vector)
+        float maxDist = Mathf.Sqrt(distance * distance + height * height);
+        float adjustedDistance = maxDist;
+        
+        RaycastHit hit;
+        
+        // SphereCast = "thick raycast" — a sphere travels along a line
+        // Why not a regular Raycast? A thin ray can slip past wall edges
+        // and corners. A sphere has width, so it catches those cases.
+        if (Physics.SphereCast(
+            startPosition,       // Start at the player's head
+            collisionRadius,     // How thick the sphere is
+            direction,           // Toward where camera wants to be
+            out hit,             // Info about what was hit
+            maxDist,             // How far to check
+            collisionMask))      // Only hit walls/ground, not the player
+        {
+            // Wall detected! Shorten distance.
+            // Subtract collisionBuffer so camera stays a bit in front of wall
+            // (without the buffer, the camera would sit exactly ON the wall
+            //  and you'd still see clipping)
+            adjustedDistance = hit.distance - collisionBuffer;
+            
+            // Don't let camera get closer than minDistance
+            // (prevents camera ending up inside the player's head)
+            adjustedDistance = Mathf.Max(adjustedDistance, minDistance);
+        }
+        
+        return adjustedDistance;
+    }
+    
+    // ============================================
+    // CURSOR HELPERS (unchanged from Week 6)
+    // ============================================
+    
+    public void UnlockCursor()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+    
+    public void LockCursor()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
 }
 ```
 
 ---
 
-### 📝 Step 3: Update Camera Position Method
+### 📝 Configure Layer Mask in Unity
 
-**Replace the `UpdateCameraPosition()` method:**
+The camera needs to know **what counts as a wall**. That's what `collisionMask` does — it filters which layers the SphereCast can hit.
 
-```csharp
-private void UpdateCameraPosition()
-{
-    // 1. Create rotation from our angles
-    Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
-    
-    // 2. Calculate direction from player to camera
-    Vector3 offset = new Vector3(0, height, -distance);
-    Vector3 direction = rotation * offset.normalized;
-    
-    // 3. Check for collision and get adjusted distance
-    Vector3 playerHead = target.position + lookAtOffset;
-    float adjustedDistance = GetCollisionAdjustedDistance(playerHead, direction);
-    
-    // 4. Calculate final camera position
-    Vector3 finalOffset = direction * adjustedDistance + Vector3.up * height;
-    Vector3 desiredPosition = target.position + finalOffset;
-    
-    // 5. Smoothly move to desired position
-    transform.position = Vector3.Lerp(
-        transform.position,
-        desiredPosition,
-        smoothSpeed * Time.deltaTime
-    );
-    
-    // 6. Look at player
-    transform.LookAt(playerHead);
-}
-```
+1. Select **Main Camera** in Hierarchy
+2. Find **CameraFollow → Collision Settings** in Inspector
+3. Click the **Collision Mask** dropdown and check:
+   - ✅ **Default** (your walls/ground are probably on this layer)
+   - ☐ Player (don't collide with the player itself!)
 
----
-
-### 📝 Step 4: Configure Layer Mask in Unity
-
-Now we need to tell the camera what objects to collide with!
-
-1. **Go back to Unity**
-
-2. **Select Main Camera** in Hierarchy
-
-3. **Find CameraFollow component** in Inspector
-
-4. **Find "Collision Mask" field**
-   - It shows a dropdown of layers
-
-5. **Click the dropdown and select:**
-   - ✅ Default (or whatever layer your walls/ground use)
-   - Make sure Player layer is NOT checked (if you have one)
-
-**Common setup:**
 ```
 Collision Mask:
-  ☑️ Default
-  ☑️ Environment (if you have this layer)
-  ☐ Player
-  ☐ Enemies
-  ☐ Ignore Raycast
+  ☑️ Default        ← walls, ground, cubes
+  ☐ Player          ← skip the player
+  ☐ Ignore Raycast  ← skip triggers, UI colliders
 ```
+
+> **💡 LayerMask explained:** Every GameObject in Unity lives on a "layer" (a label like Default, Player, UI). A LayerMask is just a checkbox filter — the SphereCast only detects objects on checked layers. This lets you ignore the player's own collider so the camera doesn't think the player is a wall.
 
 ---
 
-### 📝 Step 5: Test Collision
+## Part 3: Test Collision (10 minutes)
 
-1. **Make sure you have a wall** to test with:
-   - If not: GameObject → 3D Object → Cube
-   - Scale it to (5, 3, 1) to make a wall
-   - Position it at (0, 1.5, 5) to put it in front of player
+### ✅ Test It
+
+1. **Make sure you have a wall** (Cube scaled to (5, 3, 1), position (0, 1.5, 5))
 
 2. **Press Play**
 
-3. **Walk toward the wall**
-   - Camera should pull forward when wall blocks it
-   - Camera should stay in front of wall, not inside it
+3. **Walk toward the wall** and orbit the camera behind you:
+   - Camera should pull forward when the wall blocks it
+   - Camera should stay in front of the wall, not clip through
 
-4. **Walk away from wall**
-   - Camera should return to normal distance
+4. **Walk away from the wall:**
+   - Camera should smoothly return to normal distance
 
----
+5. **Try tight corners** — orbit the camera into a corner between two walls. The SphereCast should catch both.
 
-### 🐛 Troubleshooting Collision
+### 🎛️ Tweak Settings
 
-#### Problem: Camera still goes through walls
+Try adjusting these in the Inspector **while Play mode is running** (values reset when you stop):
 
-**Check:**
-1. Is Collision Mask set correctly? (should include Default or wall layer)
-2. Does the wall have a Collider component?
-3. Is collisionBuffer > 0?
+| Setting | Try This | What Changes |
+|---------|----------|-------------|
+| Collision Buffer | 0.1 → 0.5 | How much space between camera and wall |
+| Min Distance | 0.5 → 2.0 | Closest the camera can get to player |
+| Collision Radius | 0.1 → 0.5 | Larger = catches corners better, but pulls in sooner |
 
----
-
-#### Problem: Camera stays close even without walls
-
-**Check:**
-1. Is there an invisible collider in the scene?
-2. Is the ray starting inside the player's collider?
-
-**Fix:** Add offset to ray start point:
-```csharp
-Vector3 playerHead = target.position + lookAtOffset;  // Start higher up
-```
+When you find values you like, **write them down** and set them again after stopping Play mode (or edit them while NOT in Play mode to keep them).
 
 ---
 
-## Part 3: Smoother Collision with SphereCast (15 minutes)
+### 🐛 Troubleshooting
 
-### 🎯 Problem with Basic Raycast
+#### Camera still goes through walls
+1. Is **Collision Mask** set? (check Default is ticked)
+2. Does the wall have a **Collider** component? (Box Collider, Mesh Collider, etc.)
+3. Is `collisionBuffer > 0`?
 
-Raycast is a single thin line. It can miss corners!
+#### Camera stays close even without walls
+1. Is there an invisible collider in the scene? (check with Edit → Select All, look for hidden objects)
+2. Is the **ground** being detected? If so, increase `lookAtOffset.y` so the ray starts above the player, or uncheck the ground's layer in the mask.
 
-```
-      Wall edge
-        |
-   Ray→ |        ← Ray passes by edge
-        |🎥      ← Camera clips through corner!
-```
-
-**Solution:** Use SphereCast (a thick ray)!
-
-```
-      Wall edge
-        |
-   ⚪→  |        ← Sphere hits edge
-        |🎥      ← Camera stays outside wall!
-```
+#### Camera jitters near walls
+- Increase `Smooth Speed` (try 12-15)
+- Increase `Collision Buffer` (try 0.3-0.5)
 
 ---
 
-### 📝 Upgrade to SphereCast
+## Part 4: Understanding What We Built (10 minutes)
 
-**Replace `GetCollisionAdjustedDistance()` with:**
+### 🎓 SphereCast vs Raycast
 
-```csharp
-[Header("Collision Settings")]
-public LayerMask collisionMask;
+We went straight to SphereCast. Here's why:
 
-[Range(0.5f, 2f)]
-public float minDistance = 1f;
+```
+RAYCAST (thin line):              SPHERECAST (thick sphere):
 
-[Range(0.1f, 0.5f)]
-public float collisionBuffer = 0.2f;
-
-[Tooltip("Radius of collision check sphere (larger = less clipping)")]
-[Range(0.1f, 0.5f)]
-public float collisionRadius = 0.2f;
-
-/// <summary>
-/// Uses SphereCast for smoother collision detection
-/// </summary>
-private float GetCollisionAdjustedDistance(Vector3 startPosition, Vector3 direction)
-{
-    float adjustedDistance = distance;
-    
-    RaycastHit hit;
-    // SphereCast is like a thick raycast - better at catching corners!
-    if (Physics.SphereCast(
-        startPosition,       // Start point
-        collisionRadius,     // Sphere radius
-        direction,           // Direction
-        out hit,             // Hit info
-        distance,            // Max distance
-        collisionMask))      // What to hit
-    {
-        adjustedDistance = hit.distance - collisionBuffer;
-        adjustedDistance = Mathf.Max(adjustedDistance, minDistance);
-    }
-    
-    return adjustedDistance;
-}
+      Wall edge                        Wall edge
+        |                                |
+   ──→  |         ← misses!        ⚪→   |        ← catches it!
+        |🎥  ← clips corner             |🎥  ← stays outside
 ```
 
----
+`Physics.Raycast` is a laser-thin line. It works for open walls but slips past edges and corners. `Physics.SphereCast` is the same concept but with a sphere traveling along the line — it has **width**, so it catches geometry that a thin ray would miss.
 
-## Part 4: Polish & Fine-tuning (10 minutes)
+> **📌 When to use which:**
+> - **Raycast** — shooting bullets, line-of-sight checks, clicking on objects (you want precision)
+> - **SphereCast** — camera collision, character grounding, anything where you want tolerance for imprecise geometry
 
-### 🎨 Smooth Distance Changes
+### 🎓 RaycastHit — What Comes Back
 
-The camera currently snaps to new distances. Let's make it smooth:
+When a SphereCast (or Raycast) hits something, Unity fills a `RaycastHit` struct:
+
+| Property | What It Is | How We Use It |
+|----------|-----------|---------------|
+| `hit.distance` | How far the sphere traveled before hitting | Shorten camera distance to this |
+| `hit.point` | Exact world position of impact | Useful for debug drawing |
+| `hit.normal` | Direction pointing out of the surface | Useful for bouncing/reflecting |
+| `hit.collider` | The Collider component that was hit | Check what we hit |
+
+We only use `hit.distance` — subtract the buffer, clamp to min, and that's our safe camera distance.
+
+### 🎓 Smooth Distance (Mathf.Lerp)
+
+Without smoothing, the camera snaps instantly when a wall appears/disappears. We use the same trick as camera follow — `Mathf.Lerp` on the distance:
 
 ```csharp
-// Add this field
-private float currentDistance;
-
-void Start()
-{
-    // ... existing code ...
-    currentDistance = distance;  // Initialize
-}
-
-private void UpdateCameraPosition()
-{
-    // ... calculate adjustedDistance ...
-    
-    // Smooth the distance change
-    currentDistance = Mathf.Lerp(currentDistance, adjustedDistance, smoothSpeed * Time.deltaTime);
-    
-    // Use currentDistance instead of adjustedDistance for position
-    Vector3 finalOffset = direction * currentDistance + Vector3.up * height;
-    // ... rest of method ...
-}
+currentDistance = Mathf.Lerp(currentDistance, safeDistance, smoothSpeed * Time.deltaTime);
 ```
 
+Each frame, `currentDistance` moves a fraction toward `safeDistance`. Wall appears → distance shrinks smoothly. Wall clears → distance grows back smoothly. Same concept as `Vector3.Lerp` for position, but applied to a single float.
+
 ---
+
+## Part 5: Final Polish & Testing (10 minutes)
 
 ### 🎨 Recommended Settings
 
-Test these values for a professional feel:
+These values give a professional third-person camera feel:
 
-| Setting | Value | What It Does |
-|---------|-------|--------------|
-| Distance | 5 | Normal camera distance |
-| Height | 2 | How high above player |
-| Mouse Sensitivity | 2 | How fast camera rotates |
-| Min Pitch | -60 | How far you can look down |
-| Max Pitch | 60 | How far you can look up |
-| Smooth Speed | 10 | How fast camera follows |
-| Min Distance | 1 | Closest camera can get |
-| Collision Buffer | 0.3 | Space from walls |
-| Collision Radius | 0.2 | Size of collision sphere |
+| Setting | Value | Why |
+|---------|-------|-----|
+| Distance | 5 | Far enough to see the player and surroundings |
+| Height | 2 | Slightly above player — natural over-the-shoulder angle |
+| Mouse Sensitivity | 2 | Not too twitchy, not too sluggish |
+| Min Pitch | -60 | Can look down enough to see the ground |
+| Max Pitch | 60 | Can look up enough to see the sky |
+| Smooth Speed | 10 | Responsive but not instant |
+| Min Distance | 1 | Doesn't jam into the player's head |
+| Collision Buffer | 0.3 | Comfortable gap from walls |
+| Collision Radius | 0.2 | Catches corners without being too aggressive |
+
+### ✅ Final Test Checklist
+
+Run through all of these:
+
+- [ ] Walk into a wall — camera pulls forward
+- [ ] Walk away — camera smoothly returns to full distance
+- [ ] Orbit camera into a corner — no clipping
+- [ ] Look straight up — angle clamps, no flip
+- [ ] Look straight down — angle clamps
+- [ ] WASD moves relative to camera (Week 6 Part 5)
+- [ ] Sprint works
+- [ ] Gravity works (walk off edge)
 
 ---
 
 ## ✅ Week 7 Complete!
 
 ### What You Built:
-- ✅ Camera collision detection
-- ✅ Smooth distance adjustment
-- ✅ SphereCast for better corner detection
+- ✅ Camera collision with SphereCast
+- ✅ Smooth distance transitions
+- ✅ LayerMask filtering
 - ✅ Professional third-person camera system!
 
 ### What You Learned:
-- Raycasting (Physics.Raycast)
-- SphereCast for smoother collision
-- LayerMasks to filter collision
-- RaycastHit to get collision information
+- **SphereCast** — shooting a thick sphere to detect walls
+- **LayerMask** — filtering what the cast can hit
+- **RaycastHit** — reading collision information (distance, point, normal)
+- **Mathf.Lerp** on a float — smoothing a single value over time
 
 ---
 
@@ -3022,12 +3112,12 @@ Test these values for a professional feel:
 **Congratulations!** You've built a complete player movement and camera system!
 
 ### Full Feature List:
-- ✅ WASD movement
+- ✅ WASD movement with Input System
 - ✅ Sprint with Shift
 - ✅ Gravity and ground detection
-- ✅ Mouse look camera
-- ✅ Camera orbit around player
+- ✅ Mouse look camera orbit
 - ✅ Vertical angle limits
+- ✅ Camera-relative player movement
 - ✅ Camera collision detection
 - ✅ Smooth, professional feel
 
