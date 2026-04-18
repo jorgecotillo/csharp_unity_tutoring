@@ -284,54 +284,58 @@ transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.delt
 
 ---
 
-## 📅 WEEK 8: Camera Collision Prevention
-**Goal**: Camera doesn't clip through walls
+## 📅 WEEK 8: Humanoid Character Setup (Mixamo Import)
+**Goal**: Replace capsule with a real 3D humanoid character
+
+> **Note:** Camera Collision Prevention (originally Week 8) was completed as part of Weeks 5-7.
+> This week was moved up from Week 14 to keep the student engaged — capsules are boring!
 
 ### 📖 Teaching Block (30 minutes)
 
 **Topics to Cover:**
-1. **Camera Collision Problem** (5 min)
-   - Show the issue: camera going through walls
-   - Why this feels bad
+1. **3D Model Basics** (10 min)
+   - FBX file format
+   - Meshes, materials, and textures
+   - Importing from Mixamo (free site)
 
-2. **Raycasting for Camera** (15 min)
-   - Cast ray from player to camera
-   - Detect obstacles in between
-   - Adjust camera position if hit
+2. **Humanoid Rig** (15 min)
+   - What rigging is (skeleton inside mesh)
+   - Unity's Humanoid Avatar system
+   - SkinnedMeshRenderer vs MeshRenderer
 
-3. **LayerMask Advanced** (10 min)
-   - Ignoring certain layers
-   - Why we don't want to hit the player
-   - Setting up proper layer filtering
+3. **Model Import Settings & Idle Animation** (5 min)
+   - Rig tab: Animation Type → Humanoid
+   - Avatar Definition: Create From This Model
+   - Setting up Animator Controller with basic idle state
+   - Apply Root Motion = OFF (our script controls movement)
 
-**Key Code Concepts:**
-```csharp
-// Raycast from player to desired camera position
-if (Physics.Raycast(player.position, direction, out hit, distance, obstacleLayer)) {
-    // Obstacle hit! Move camera closer
-    currentDistance = hit.distance;
-} else {
-    // No obstacle, use full distance
-    currentDistance = distance;
-}
-```
+**Key Concepts:**
+- 3D model files (.fbx)
+- Rigging and avatars
+- Mixamo for free characters + animations
+- Animator Controller basics (single idle state)
+- Parent-child transform hierarchy (model as child of Player)
 
 ### 🔨 Building Block (30 minutes)
 
 **What We'll Build:**
-1. Add raycast from player to camera
-2. Adjust camera distance when hitting walls
-3. Add collision layer mask
-4. Test in environment with walls
-5. Smooth transition when camera moves
+1. Download character + idle animation from Mixamo.com
+2. Import FBX into Unity, configure Rig → Humanoid
+3. Hide capsule mesh, add humanoid as child of Player
+4. Adjust CharacterController size to fit character
+5. Create Animator Controller with idle animation
+6. Test — character moves with WASD same as before!
 
 **Deliverable:**
-- Camera pushes forward when near walls
-- Pulls back when moving away from walls
-- No clipping through geometry
+- Humanoid character replaces capsule
+- Idle animation playing (no frozen T-Pose)
+- WASD movement, sprint, camera all still working
+- No code changes to PlayerController or Camera scripts
 
 **Files to Modify:**
-- `ThirdPersonCamera.cs` (add collision detection)
+- None (Unity import settings + scene setup only)
+
+**See:** `week08/README.md` for full step-by-step guide
 
 ---
 
@@ -601,54 +605,11 @@ public class Health : MonoBehaviour, IDamageable {
 
 ---
 
-## 📅 WEEK 14: Humanoid Character Setup (Mixamo Import)
-**Goal**: Replace primitives with real 3D character
-
-### 📖 Teaching Block (30 minutes)
-
-**Topics to Cover:**
-1. **3D Model Basics** (10 min)
-   - FBX file format
-   - Meshes, materials, and textures
-   - Importing from Mixamo (free site)
-
-2. **Humanoid Rig** (15 min)
-   - What rigging is (skeleton)
-   - Unity's Humanoid avatar system
-   - Why we need rigged characters for animation
-
-3. **Model Import Settings** (5 min)
-   - Rig tab settings
-   - Animation Type: Humanoid
-   - Avatar Definition: Create From This Model
-
-**Key Concepts:**
-- 3D model files (.fbx)
-- Rigging and avatars
-- Mixamo for free character downloads
-
-### 🔨 Building Block (30 minutes)
-
-**What We'll Build:**
-1. Download character from Mixamo.com
-2. Import FBX into Unity
-3. Configure import settings (Rig → Humanoid)
-4. Replace player capsule with character model
-5. Adjust CharacterController size to fit model
-
-**Deliverable:**
-- Humanoid character in project
-- Properly configured as Humanoid rig
-- Character replaces primitive capsule
-- Movement still works correctly
-
-**Files to Modify:**
-- None (Unity import settings only)
-
----
-
-## 📅 WEEK 15: Animation Clips Setup
+## 📅 WEEK 14: Animation Clips Setup (Walk, Run, Jump)
 **Goal**: Import and configure animation clips from Mixamo
+
+> **Note:** Humanoid character setup (originally Week 14) was moved to Week 8.
+> This week picks up where Week 8 left off — we already have the character and idle animation.
 
 ### 📖 Teaching Block (30 minutes)
 
