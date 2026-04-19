@@ -6,7 +6,7 @@
 - ✅ Third-person camera working
 - ✅ An **EnemyAI script** that patrols between Point A → Point B
 - ✅ The enemy **chases** when the player gets close (state machine with enums!)
-- ⚠️ **Known issue:** Some students have enemies that just walk in tiny circles — we fix that first!
+- ⚠️ **Known issue:** Your enemy might just walk in tiny circles — we fix that first!
 
 ---
 
@@ -14,7 +14,7 @@
 
 Two big wins today:
 
-1. **Fix the "spinning enemy" bug** — We'll debug together like detectives 🔍
+1. **Fix the "spinning enemy" bug** — Debug it like a detective 🔍
 2. **Add a Health System** — The enemy can now HURT you when it gets close!
 
 ```
@@ -54,10 +54,10 @@ BEFORE (start of this week):           AFTER (end of this week):
 
 ### 🔧 The Problem: "My Enemy Walks in a Tiny Circle!"
 
-Warren reported that his patrol enemy just walks in a small circle instead of patrolling between Point A and Point B, and never chases the player. Let's become **bug detectives** 🕵️ and figure out what went wrong!
+A common issue after setting up the patrol system: the enemy just walks in a small circle instead of patrolling between Point A and Point B, and never chases the player. Let's become **bug detectives** 🕵️ and figure out what went wrong!
 
 ```
-What Warren SEES:                  What SHOULD happen:
+What you SEE:                      What SHOULD happen:
 
      ╭──╮                          A ·────── 🧟 ──────· B
   🧟 │  │  (tiny circle)               patrol back and forth
@@ -66,9 +66,9 @@ What Warren SEES:                  What SHOULD happen:
   "It's moving... but wrong"        "It should walk a LONG path!"
 ```
 
-### 🎓 How Real Developers Debug (3 minutes)
+### 🎓 How Real Developers Debug
 
-Before we look at Warren's specific bug, let's talk about HOW to debug. Real game developers don't randomly change code and hope it works — they follow a process:
+Before diving into the specific bug, let's talk about HOW to debug. Real game developers don't randomly change code and hope it works — they follow a process:
 
 ```
 The Debugging Process:
@@ -118,9 +118,9 @@ Tiny circle — Points are TOO CLOSE or ON TOP OF EACH OTHER:
 
 ---
 
-### 🔍 Debug Checklist: Walk Through These WITH the Student
+### 🔍 Debug Checklist: Walk Through These
 
-Go through each check together. **Stop at the first problem you find** — that's probably the fix!
+Go through each check. **Stop at the first problem you find** — that's probably the fix!
 
 #### ✅ Check 1: Are Point A and Point B Actually ASSIGNED in the Inspector?
 
@@ -141,7 +141,7 @@ Inspector — EnemyAI component:
 └──────────────────────────────────────────────┘
 ```
 
-🐛 **If they say "None":** The patrol points aren't assigned! The script has a safety check that returns early if they're null, so the enemy might just stand still — or if only the code paths change, it might use default position (0,0,0).
+🐛 **If they say "None":** The patrol points aren't assigned! The script has a safety check that returns early if they're null, so the enemy might just stand still — or it might use default position (0,0,0).
 
 **Fix:**
 1. Create two **Empty GameObjects** in the Hierarchy (`Right-click → Create Empty`)
@@ -189,7 +189,7 @@ PatrolPoint_B → Position: X: 20, Y: 0,  Z: 15    ← 8 units away!
 
 > 💡 **Pro tip:** A good patrol distance is **5-15 units**. Less than 2 units and the NPC barely moves. More than 20 and the patrol takes forever.
 
-**🖐️ Fun exercise:** Move Point A and Point B around in the Scene view while the game is running! You'll see the NPC update its path in real-time. This is a great way to understand how the patrol works.
+**🖐️ Fun exercise:** Move Point A and Point B around in the Scene view while the game is running! The NPC updates its path in real-time. This is a great way to understand how the patrol works.
 
 ---
 
@@ -346,13 +346,13 @@ NPC (parent) at (15, 0, 15)
 | 🤪 Enemy moves but looks wrong | Character model offset from parent | Reset child's local position to (0,0,0) |
 | ⚡ Two scripts fighting | Both NPCPatrol and EnemyAI active | Remove NPCPatrol, keep only EnemyAI |
 
-> 💡 **Warren's bug was most likely Check 2** — Point A and Point B were both at (0, 0, 0) because they were created but never repositioned in the scene. This is the #1 mistake students make!
+> 💡 **The most common cause is Check 2** — Point A and Point B both at (0, 0, 0) because they were created but never repositioned in the scene. This is the #1 mistake when setting up patrols!
 
 ---
 
-### 🖐️ Let's Fix It Together! (5 minutes)
+### 🖐️ Apply the Fix
 
-**Do these steps with the student:**
+**Steps to verify and fix:**
 
 1. Open the Unity project
 2. In the Hierarchy, find the patrol point objects
@@ -457,13 +457,13 @@ We're going to:
 
 ### Step 1: Create the PlayerHealth Script
 
-**🖐️ Do these steps together:**
+**🖐️ Do these steps:**
 
 1. In your Project panel, navigate to `Assets/Scripts/`
 2. Right-click → **Create → C# Script**
 3. Name it exactly **`PlayerHealth`**
 4. Double-click to open it, **select all → delete** the template code
-5. Type this together, section by section:
+5. Type this section by section:
 
 ---
 
@@ -587,7 +587,7 @@ This is the most important part! Other scripts call this to hurt the player:
 }
 ```
 
-> 💡 **Ask the student:** "Why is `Die()` private but `TakeDamage()` is public?"
+> 💡 **Why is `Die()` private but `TakeDamage()` is public?**
 >
 > Because nothing outside this script should be able to kill the player directly! Death should only happen as a RESULT of taking enough damage. It's like real life — you can't just "decide" someone is dead. They have to take enough damage first. `TakeDamage` is the controlled entry point; `Die` is the internal consequence.
 
@@ -598,7 +598,7 @@ This is the most important part! Other scripts call this to hurt the player:
 This script goes on the **enemy** and deals damage when touching the player.
 
 1. Create a new C# script called **`EnemyDamage`**
-2. Delete the template, type this together:
+2. Delete the template, type this:
 
 ```csharp
 using UnityEngine;
@@ -657,7 +657,7 @@ public class EnemyDamage : MonoBehaviour
 
 Now we need to add a **Sphere Collider** to the enemy and set it as a **trigger**.
 
-**🖐️ Do these steps together:**
+**🖐️ Do these steps:**
 
 1. Select the **NPC/Enemy** object in the Hierarchy (the parent, where EnemyAI is)
 
@@ -758,7 +758,7 @@ Testing the damage system:
 
 ### 🎮 Tweak the Values!
 
-**Challenge the student to find the "fun zone":**
+**Challenge: find the "fun zone" by tweaking values:**
 
 | Setting | Too Low | Just Right | Too High |
 |---------|---------|------------|----------|
