@@ -3,15 +3,15 @@
 This folder contains game design specs, competition strategy,
 and tutoring materials. The project has evolved through two versions:
 
-## Current: v2 — Globin: Good Manners Win
+## Current: v2 — Goblin: Good Manners Win
 
-A **real-time arcade-strategy game** where you play as Globin, a
+A **real-time arcade-strategy game** where you play as Goblin, a
 character whose only weapons are good manners. NPCs behave according to
 real game-theory strategies (Copycat, Grudger, Always Hostile). Each
 level teaches a game-theory concept through gameplay. Inspired by Nicky
 Case's *The Evolution of Trust* and *We Become What We Behold*.
 
-**Start here:** [`v2/GLOBIN_SPEC.md`](v2/GLOBIN_SPEC.md)
+**Start here:** [`v2/GOBLIN_SPEC.md`](v2/GOBLIN_SPEC.md)
 
 ## Previous: v1 — Kindred Village & Project Options
 
@@ -23,7 +23,7 @@ game with its own demo in `kindred_village_demo/`.
 
 | Path | What it is |
 |------|------------|
-| `v2/GLOBIN_SPEC.md` | **Current spec.** Full game spec for Globin — mechanics, sprints, competitions, NYU pipeline. |
+| `v2/GOBLIN_SPEC.md` | **Current spec.** Full game spec for Goblin — mechanics, sprints, competitions, NYU pipeline. |
 | `v1/PLAN.md` | Original 3–6 month plan with competition strategy. |
 | `v1/CONCEPTS.md` | Six project concepts to choose from. |
 | `v1/JAM_SPRINT_SPEC.md` | Sprint spec for Kindred Village: Council of Sages. |
