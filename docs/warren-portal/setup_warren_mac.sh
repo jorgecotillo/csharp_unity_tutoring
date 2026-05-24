@@ -16,7 +16,7 @@
 #
 #       curl -fsSL https://raw.githubusercontent.com/jorgecotillo/csharp_unity_tutoring/main/docs/warren-portal/setup_warren_mac.sh -o /tmp/setup.sh && bash /tmp/setup.sh
 #
-#    OR if Jose sent you this file, run:
+#    OR if Jorge sent you this file, run:
 #       chmod +x setup_warren_mac.sh
 #       ./setup_warren_mac.sh
 # ============================================================
