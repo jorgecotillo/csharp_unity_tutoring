@@ -1,0 +1,42 @@
+{
+    "name": "Warren's Dev Environment",
+    "image": "mcr.microsoft.com/devcontainers/dotnet:8.0",
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "ms-vsliveshare.vsliveshare",
+                "ms-dotnettools.csharp",
+                "ms-dotnettools.csdevkit",
+                "visualstudiotoolsforunity.vstuc"
+            ],
+            "settings": {
+                "editor.fontSize": 15,
+                "editor.tabSize": 4,
+                "editor.formatOnSave": true,
+                "editor.minimap.enabled": false,
+                "editor.wordWrap": "on",
+                "terminal.integrated.fontSize": 14,
+                "workbench.startupEditor": "readme",
+                "git.autofetch": true,
+                "git.confirmSync": false,
+                "git.enableSmartCommit": true,
+                "github.copilot.enable": {
+                    "*": true
+                },
+                "files.autoSave": "afterDelay",
+                "files.autoSaveDelay": 5000
+            }
+        }
+    },
+    "postCreateCommand": "echo '🏰 Welcome, Warren! Your dev environment is ready. Happy coding!'",
+    "forwardPorts": [],
+    "remoteUser": "vscode"
+}
