@@ -148,7 +148,7 @@ Each sprint is **one hour** and follows the same shape. This shape *is* the less
 
 > Add a clickable bench in the village. When the player clicks it, open a text input panel where the player types a real-life question. On submit, randomly pick one philosopher and display a short answer in that philosopher's voice, drawn from the same quote bank used for villager advice. No persistence required.
 
-This preserves Warren's original "philosophical Magic 8-Ball" idea as a player-facing bonus on top of the village game. If it doesn't land in week 3, it ships as v1.1 post-competition.
+This preserves your original "philosophical Magic 8-Ball" idea as a player-facing bonus on top of the village game. If it doesn't land in week 3, it ships as v1.1 post-competition.
 
 **Teachable moments to plant:**
 - AI cannot upload to itch.io. Junior does that step manually — *"this is the part AI can't do for you, and that's why your judgment matters."*

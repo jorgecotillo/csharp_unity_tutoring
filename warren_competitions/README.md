@@ -1,6 +1,6 @@
-# Warren — Competition & Game Design Plan
+# Competition & Game Design Plan
 
-This folder contains Warren's game design specs, competition strategy,
+This folder contains game design specs, competition strategy,
 and tutoring materials. The project has evolved through two versions:
 
 ## Current: v2 — Globin: Good Manners Win
@@ -25,7 +25,7 @@ game with its own demo in `kindred_village_demo/`.
 |------|------------|
 | `v2/GLOBIN_SPEC.md` | **Current spec.** Full game spec for Globin — mechanics, sprints, competitions, NYU pipeline. |
 | `v1/PLAN.md` | Original 3–6 month plan with competition strategy. |
-| `v1/CONCEPTS.md` | Six project concepts Warren could choose from. |
+| `v1/CONCEPTS.md` | Six project concepts to choose from. |
 | `v1/JAM_SPRINT_SPEC.md` | Sprint spec for Kindred Village: Council of Sages. |
 | `v1/COMPETITIONS.md` | Competition reference with deadlines and fit notes. |
 | `v1/DECISIONS.md` | Decision checklist from the v1 planning phase. |

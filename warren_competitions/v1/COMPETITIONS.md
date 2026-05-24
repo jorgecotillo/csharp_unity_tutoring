@@ -1,6 +1,6 @@
 # Competitions Reference
 
-All competitions evaluated, with honest "fit for Warren" notes. Prioritized
+All competitions evaluated, with honest "fit for you" notes. Prioritized
 list is in `PLAN.md`; this file is the long-form reference.
 
 ## Primary targets
@@ -10,8 +10,8 @@ list is in `PLAN.md`; this file is the long-form reference.
 - **What it is (acronym):** "CAC" = Congressional App Challenge, an
   annual coding competition officially endorsed by the U.S. Congress.
 - **Eligibility:** U.S. middle and high school students. Competed per
-  congressional district (Warren enters in his NY district).
-- **Format:** Solo **or** team (1–4 students). ← Warren can go solo.
+  congressional district (you enter in your NY district).
+- **Format:** Solo **or** team (1–4 students). ← you can go solo.
 - **Submission:** Working app (web, mobile, or desktop) + 3-minute demo
   video + written description. A game that runs in a browser counts.
 - **2026 dates (verify on site):** Student registration opens
@@ -26,11 +26,11 @@ list is in `PLAN.md`; this file is the long-form reference.
 - **Registration process:**
   1. Go to the Students page:
      https://www.congressionalappchallenge.us/students/student-registration/
-  2. Parent creates an account (Warren is a minor, so a parent email
+  2. Parent creates an account (you're a minor, so a parent email
      is required for the account).
-  3. Confirm Warren's congressional district by ZIP code — the site
+  3. Confirm your congressional district by ZIP code — the site
      will confirm which Representative's Challenge he's entering.
-  4. Warren is then registered; the submission portal opens the same
+  4. You are then registered; the submission portal opens the same
      season.
   5. Before the deadline: upload the app link/repo, the 3-minute demo
      video (YouTube unlisted is fine), and the written description.
@@ -45,8 +45,8 @@ list is in `PLAN.md`; this file is the long-form reference.
   Technology THINK Scholars Program. An annual research-proposal
   competition run by MIT undergrads.
 - **Eligibility:** U.S. high school students in **grades 9–12 only.**
-  Warren is in 8th grade, so **he is NOT eligible this cycle.** This
-  becomes a real target in his 9th-grade year (fall 2026 → Jan 2027
+  You're in 8th grade, so **you're NOT eligible this cycle.** This
+  becomes a real target in your 9th-grade year (fall 2026 → Jan 2027
   deadline).
 - **Format:** Individual research-style proposal. Code does **not**
   need to be finished — you propose the project and justify it.
@@ -56,11 +56,11 @@ list is in `PLAN.md`; this file is the long-form reference.
 - **Recognition:** $1,000+ in project funding, weekly mentorship from
   MIT undergrads throughout the spring semester, and travel to MIT for
   a presentation weekend. Very strong college-application credential.
-- **Registration process (next year):** when Warren starts 9th grade,
+- **Registration process (next year):** when you start 9th grade,
   create an account at think.mit.edu once the portal opens
   (typically Nov 1). Submit the proposal by the January deadline.
 - **Why it's a great second home (next year):** the same Counsel app
-  Warren builds for CAC this year rewrites cleanly as a THINK research
+  you build for CAC this year rewrites cleanly as a THINK research
   proposal next year. Almost zero extra work; the project doubles.
 
 ### 3. Games for Change (G4C) Student Challenge ⭐ only if a game option is picked
@@ -68,7 +68,7 @@ list is in `PLAN.md`; this file is the long-form reference.
 - **What it is (acronym):** "G4C" = Games for Change, a nonprofit that
   runs an annual student game-design challenge focused on social impact.
 - **Eligibility:** Middle and high school students in participating
-  regions. New York has its own G4C presence — Warren is in the right
+  regions. New York has its own G4C presence — you're in the right
   region.
 - **Format:** Solo or team. Theme-based annual prompts (past themes
   include Climate, Immigrant Voices, Future Communities, Civic
@@ -84,7 +84,7 @@ list is in `PLAN.md`; this file is the long-form reference.
 - **Registration process (when the cycle opens):**
   1. Watch https://www.gamesforchange.org/studentchallenge/ for the
      next cycle announcement (typically late fall).
-  2. Parent creates an account and registers Warren.
+  2. Parent creates an account and registers you.
   3. Game is submitted through the G4C student portal before the
      spring deadline, along with a designer statement.
 - **Why it fits:** explicitly rewards mechanics-driven social-impact
@@ -99,14 +99,14 @@ list is in `PLAN.md`; this file is the long-form reference.
 - **What it is (acronym):** "MLH" = Major League Hacking, the largest
   organizer of student hackathons. Their Junior events are specifically
   for students under 18.
-- **Eligibility:** Under 18. **Minors (Warren included) need a parent
+- **Eligibility:** Under 18. **Minors (including you) need a parent
   permission form** to participate. Solo entries are allowed at most
   Junior events.
 - **Role in the plan:** one practice hackathon (a single weekend)
   during Month 2–4 as a low-stakes rep for building-under-pressure.
   Do one; don't build the plan around them.
 - **Registration process:** find a Junior event on the MLH site,
-  register Warren with parent email, sign the parental consent form
+  register you with parent email, sign the parental consent form
   MLH sends, show up (in person or virtual) for the event weekend.
 
 ### 5. Game Development World Championship (GDWC)
@@ -116,9 +116,9 @@ list is in `PLAN.md`; this file is the long-form reference.
   and hobbyists.
 - **Eligibility:** Solo or team. Global. Student categories exist.
 - **Role in the plan:** summer submission window. Re-submit the same
-  Unity build Warren made for CAC / G4C. Zero extra design cost.
+  Unity build you made for CAC / G4C. Zero extra design cost.
 - **Registration process:** create an account at gdwc.com (parent
-  email for Warren), upload the game to the "Hobby" or "Student"
+  email for you), upload the game to the "Hobby" or "Student"
   category, provide screenshots and a short description.
 
 ### 6. CodeDay (NY and virtual events)
@@ -128,18 +128,18 @@ list is in `PLAN.md`; this file is the long-form reference.
 - **Status right now (April 2026):**no NY in-person event currently
   on the calendar. Virtual events run periodically.
 - **Role in the plan:** keep on an opportunistic radar. If an NY or
-  virtual CodeDay is announced during Warren's 6-month window and the
+  virtual CodeDay is announced during your 6-month window and the
   theme aligns, it's a fine weekend practice run. Solo is allowed, so
   this stays on the "yes if timing works" list (not removed).
 - **Registration process:** subscribe to CodeDay announcements on
-  their site; when an event is announced, register Warren with parent
+  their site; when an event is announced, register you with parent
   email; sign the parental consent form; attend.
 
 ### 7. NASA App Development Challenge
 - **URL:** https://stemgateway.nasa.gov/public/s/adc
 - **Fit:** open to US middle and high schoolers, but theme is fixed
-  (real NASA mission data). Only pick this up if Warren gets excited
-  about space data; otherwise it pulls him off-theme.
+  (real NASA mission data). Only pick this up if you get excited
+  about space data; otherwise it pulls you off-theme.
 
 ## Explicitly deprioritized (with reasons)
 
@@ -153,7 +153,7 @@ list is in `PLAN.md`; this file is the long-form reference.
 
 This is the shape of the 6-month window assuming we start "Month 1"
 in **May 2026** (the month CAC registration opens). Adjust to the real
-calendar when Warren kicks off.
+calendar when you kick off.
 
 ```
 Month 1    Month 2    Month 3    Month 4    Month 5    Month 6
@@ -167,12 +167,12 @@ Month 1    Month 2    Month 3    Month 4    Month 5    Month 6
   |
  Register for CAC (May 1, 2026)
 
-Year 2 (Warren's 9th grade):
+Year 2 (your 9th grade):
   Nov 2026: MIT THINK opens → Jan 2027 deadline
   Mar 2027: Games for Change Student Challenge deadline
 ```
 
 **CAC is the single non-negotiable anchor this year** because its
-window reliably falls inside our 6-month plan and Warren is eligible
+window reliably falls inside our 6-month plan and you're eligible
 right now. MIT THINK and G4C are Year-2 targets that re-use the same
 project.

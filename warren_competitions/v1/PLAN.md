@@ -1,10 +1,10 @@
-# Warren — 3 to 6 Month Competition Plan
+# Your 3 to 6 Month Competition Plan
 
 ## 1. Executive summary
 
-Warren is an 8th-grade student in New York who has already shipped a working
-Unity project with NPC mechanics. He likes **strategy games**, is drawn to
-**NPC/AI-driven systems**, wants to work **mostly solo**, and does his best
+You're an 8th-grade student in New York who has already shipped a working
+Unity project with NPC mechanics. You like **strategy games**, are drawn to
+**NPC/AI-driven systems**, want to work **mostly solo**, and do your best
 work when a project is **fun, interactive, and visually rewarding**.
 
 The parents' goal is twofold:
@@ -24,7 +24,7 @@ One build, multiple submissions. This is how most teen winners actually
 operate — the project is reused across Congressional App Challenge, a game
 jam, and a research/innovation program.
 
-## 2. Warren's profile signals (for designing the project)
+## 2. Your profile signals (for designing the project)
 
 These are the signals I used to pick the candidate project concepts:
 
@@ -42,7 +42,7 @@ These are the signals I used to pick the candidate project concepts:
 - **Prefers solo** → the **Congressional App Challenge (CAC)** allows
   solo entries. Game jams accept solo developers. Hackathons are
   optional, not required.
-- **AI (Artificial Intelligence) allowed** → Warren can use Copilot CLI
+- **AI (Artificial Intelligence) allowed** → you can use Copilot CLI
   (command-line interface), Claude Code, spec-kit, ralph-loop, and
   sub-agents for implementation. AI as a *tool* is expected at this
   level; AI as a *feature* (**NPCs** — Non-Player Characters — with
@@ -60,7 +60,7 @@ competitions whose windows are open.
 
 | Priority | Competition | Why it's the core target | Submission format |
 |----------|-------------|-------------------------|-------------------|
-| 🥇 P1 | **Congressional App Challenge (CAC)** — Warren's NY congressional district | Solo-allowed, prestigious, recognized by the U.S. Congress. 2025 winners skewed heavily toward AI + social good + personal story. Registration opens **May 1, 2026**; submissions due **October 26–30, 2026**. | Working app (web, mobile, or desktop) + 3-minute demo video + written description. |
+| 🥇 P1 | **Congressional App Challenge (CAC)** — your NY congressional district | Solo-allowed, prestigious, recognized by the U.S. Congress. 2025 winners skewed heavily toward AI + social good + personal story. Registration opens **May 1, 2026**; submissions due **October 26–30, 2026**. | Working app (web, mobile, or desktop) + 3-minute demo video + written description. |
 | 🥈 P2 | **Games for Change (G4C) Student Challenge** *(only if the build is a game, not a pure app)* | Explicitly rewards games with a social-impact theme — exactly the parents' ask. Middle-school "Junior" division (grades 5–8) is a natural fit. **Next cycle submissions open late 2026; deadline typically late March of the following year (~March 2027).** The 2026 cycle's March 30, 2026 deadline has already passed. | Playable game build + designer statement. |
 
 ### Stretch / opportunistic targets
@@ -69,21 +69,21 @@ competitions whose windows are open.
 |----------|-------------|-----------------|
 | S1 | **MLH (Major League Hacking) Junior / local hackathons** | Practice runs during months 2–4. 24–48 hour events. Low stakes, résumé-friendly. Solo participation allowed at most events; minors typically need parental permission. |
 | S2 | **Game Development World Championship (GDWC)** (if we go the game route) | Summer submission window; re-use the same Unity build. Zero extra design cost. |
-| S3 | **CodeDay** (New York, when scheduled) | Co-ed, open to middle and high school students, solo **or** team. Fun social experience but not part of the critical path since Warren prefers solo deep work. Keep an eye on the NY event calendar and opt in if a date lands inside the 6-month window. |
+| S3 | **CodeDay** (New York, when scheduled) | Co-ed, open to middle and high school students, solo **or** team. Fun social experience but not part of the critical path since you prefer solo deep work. Keep an eye on the NY event calendar and opt in if a date lands inside the 6-month window. |
 
 ### Future target (not this cycle — eligibility gap)
 
 - **MIT THINK Scholars Program** — restricted to **U.S. high school
-  students, grades 9–12**. Warren is in 8th grade, so he is **not
-  eligible this cycle**. This is a strong target for next year once he
-  enters 9th grade. Keep the project design in mind so the same idea
+  students, grades 9–12**. You're in 8th grade, so you're **not
+  eligible this cycle**. This is a strong target for next year once you
+  enter 9th grade. Keep the project design in mind so the same idea
   can be reframed as a research proposal later.
 
 ### Explicitly deprioritized
 
 - **Canadian Computing Olympiad (CCO)** — Canada only.
 - **Codeforces / AtCoder** — pure algorithm-sprint contests; do not
-  produce a portfolio artifact, don't match Warren's strengths, and
+  produce a portfolio artifact, don't match your strengths, and
   don't align with the mental-health / community theme.
 - **Google Summer of Code (GSoC)** — aimed at contributing to existing
   open-source projects, not shipping original work, and historically
@@ -97,7 +97,7 @@ CAC's published window for the current cycle.
 
 ### Month 1 — Pick one concept, lock the spec
 
-- Warren reads `CONCEPTS.md` and picks **his favorite option**
+- You read `CONCEPTS.md` and pick **your favorite option**
   (parents have veto on scope, not on theme).
 - Generate a formal **spec** (specification) using spec-kit / Copilot
   CLI. The spec should name:
@@ -119,7 +119,7 @@ CAC's published window for the current cycle.
 - Ship a **playable / usable vertical slice**: one complete feature end
   to end. For a game: one NPC, one strategy choice, one resolution loop.
   For an app: one question answered by the system, start to finish.
-- First playtest — Warren shows it to 2–3 classmates and/or a teacher.
+- First playtest — you show it to 2–3 classmates and/or a teacher.
   Write down every piece of feedback verbatim; judges love seeing
   "user research" in the submission write-up.
 - Optional: enter one **MLH (Major League Hacking) Junior Hackathon**
@@ -135,7 +135,7 @@ CAC's published window for the current cycle.
   permission) for the demo video.
 - Start a **"research journal"** — notes on what worked, what didn't,
   and citations for every claim. This becomes the raw material for a
-  future MIT THINK proposal once Warren is in 9th grade.
+  future MIT THINK proposal once you're in 9th grade.
 
 ### Month 4 — Polish + submission package
 
@@ -145,7 +145,7 @@ CAC's published window for the current cycle.
 - **Write the 3-minute demo video script.** Structure: 15 s problem,
   30 s personal story / motivation, 90 s live demo, 45 s why it matters
   (cite the Digital Thriving principle) + future work.
-- Record and edit the demo video. Warren narrates.
+- Record and edit the demo video. You narrate.
 - Submit to **CAC** in his district.
 
 ### Month 5 — Iterate on feedback + secondary submissions
@@ -162,27 +162,27 @@ CAC's published window for the current cycle.
 ### Month 6 — Stretch goals, presentation prep, next-year planning
 
 - If CAC district results come in: prep for any House of
-  Representatives Showcase / Washington, DC presentation if Warren
-  wins his district.
+  Representatives Showcase / Washington, DC presentation if you
+  win your district.
 - Start a short **devlog (development log) post** (Medium, personal
   site, or a GitHub README page). Long-form writing about the project
   is what turns a competition entry into a college-application story.
 - Decide whether to carry the project into summer with the **Game
   Development World Championship (GDWC)** or start a second, larger
   project.
-- Map out **next year's MIT THINK** submission now that Warren will be
+- Map out **next year's MIT THINK** submission now that you'll be
   eligible as a 9th grader (applications open November 1, deadline
   early January).
 
 ## 5. Recommended pick
 
-If Warren has no strong preference, I recommend:
+If you have no strong preference, I recommend:
 
 > **The "Counsel" philosopher-advice app** (see `CONCEPTS.md`) as the
 > **primary** build, targeting the **Congressional App Challenge
 > (CAC)** this cycle and **MIT THINK** next year.
 >
-> Rationale: it matches Warren's own expressed interest (the
+> Rationale: it matches your own expressed interest (the
 > philosopher-eight-ball idea), it is *smaller in scope* than a full
 > strategy game (meaning we can actually finish in 6 months with a
 > polished result), it fits CAC's past-winner pattern almost perfectly
@@ -191,7 +191,7 @@ If Warren has no strong preference, I recommend:
 > philosophical dialogue improve adolescent decision-making under
 > stress?").
 
-If Warren strongly prefers building a game, the recommended pick is:
+If you strongly prefer building a game, the recommended pick is:
 
 > **"Kindred Village"** (see `CONCEPTS.md`) — a cozy strategy /
 > **NPC** (Non-Player Character) management simulation where the win
@@ -204,7 +204,7 @@ If Warren strongly prefers building a game, the recommended pick is:
 Either pick is defensible. The worst move is building two things at
 once — we want one polished thing, multiple submissions.
 
-## 6. What Warren needs to decide
+## 6. What you need to decide
 
-See `DECISIONS.md` for a short checklist to go through with him before
-Month 1 starts.
+See `DECISIONS.md` for a short checklist to go through with your parents
+before Month 1 starts.

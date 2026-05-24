@@ -34,10 +34,10 @@ Same preceptorship model as the Kindred Village spec:
 | Role | Who | What they do |
 |---|---|---|
 | **Senior / Preceptor** | Jorge | Owns architecture. Writes specs. Reviews every AI diff out loud. Catches the mistakes AI makes. Decides what gets merged. |
-| **EiC / Apprentice** | Warren | Writes the prompt. Runs the AI agent. Reads the diff. Tests in Play Mode. Reports what broke. Iterates. |
+| **EiC / Apprentice** | The student | Writes the prompt. Runs the AI agent. Reads the diff. Tests in Play Mode. Reports what broke. Iterates. |
 | **AI agent** | Copilot CLI / Ralph loop | Implements. Refactors. Generates boilerplate. Suggests next steps. Never the final decider. |
 
-The key difference from Kindred Village: **this game has real game-theory underpinnings.** Each sprint includes a "game-theory moment" where Jorge explains the real-world concept behind the mechanic Warren just implemented. Warren is not just learning to code — he's learning game theory through building.
+The key difference from Kindred Village: **this game has real game-theory underpinnings.** Each sprint includes a "game-theory moment" where Jorge explains the real-world concept behind the mechanic you just implemented. You're not just learning to code — you're learning game theory through building.
 
 ---
 
@@ -82,7 +82,7 @@ Key insight: **Copycat (tit-for-tat) consistently wins tournaments** because it'
 
 ### Pac-Man (Namco, 1980)
 
-Warren said the game should feel linear "like Pac-Man." What that means for Globin:
+The game should feel linear "like Pac-Man." What that means for Globin:
 
 - **Level-based progression.** Each level is a self-contained arena with a clear win condition. Complete it, move to the next.
 - **Real-time action.** Things happen continuously. The player moves and acts in real time; NPCs don't wait for the player's turn.
@@ -173,7 +173,7 @@ This is the *explorable explanation* layer. The player learns by doing, then get
 
 ### What Globin looks like
 
-Warren should sketch this. Starting direction:
+You should sketch this. Starting direction:
 - Small, round, expressive creature (think: Kirby-scale, not human-scale)
 - Big eyes, no mouth (emotions through eyes and body language)
 - Color: warm green or soft blue (visually distinct from all NPC tints)
@@ -200,7 +200,7 @@ Dialogue trees, inventory, crafting, procedural generation, multiplayer, day/nig
 
 | Layer | Choice | Why |
 |---|---|---|
-| Engine | Unity 2D (LTS, URP) | Continues from Warren's existing Unity work |
+| Engine | Unity 2D (LTS, URP) | Continues from existing Unity work |
 | Art style | Simple 2D sprites (pixel art or flat vector) | Keeps art scope tiny; Nicky Case's style proves simple works |
 | NPC AI | Finite State Machines (one MonoBehaviour per strategy type, inheriting from a base `NPCStrategy` class) | Game-theory strategies are rule-based; no LLM needed. FSMs are debuggable. |
 | Level data | JSON files (NPC placements, types, win conditions, share-token count) | Easy to add/tweak levels without recompiling |
@@ -249,7 +249,7 @@ Scripts/
 Estimated time: **4–6 hours**, spread across evenings.
 
 - [ ] New Unity 2D project, URP template, Git from commit 1
-- [ ] Globin sprite placeholder (colored circle with eyes — Warren replaces with real art later)
+- [ ] Globin sprite placeholder (colored circle with eyes — replace with real art later)
 - [ ] GlobinController.cs — WASD movement on a simple arena (single-screen, camera locked)
 - [ ] NPCBase.cs — one NPC that wanders to random points in the arena (no pathfinding needed for 2D — just pick a point, move toward it, pick another)
 - [ ] TrustManager.cs — a global trust value (int 0–100) with `AddTrust(int)` and `RemoveTrust(int)`, inspector-visible
@@ -276,7 +276,7 @@ Each sprint is **one hour** and follows the same shape as Kindred Village:
 6. **Fix the inevitable break (10 min).** Inspector references, collider issues, etc.
 7. **Commit + write 2-line journal entry (5 min).** What did AI do well? Where did it need correction?
 
-**Game-theory moment (new for Globin):** At the end of each sprint, Jorge spends 2 minutes explaining the real-world concept behind what Warren just built. This is the *preceptorship* version of the end-of-level cards — Warren understands the theory because he built the mechanic.
+**Game-theory moment (new for Globin):** At the end of each sprint, Jorge spends 2 minutes explaining the real-world concept behind what you just built. This is the *preceptorship* version of the end-of-level cards — you understand the theory because you built the mechanic.
 
 ---
 
@@ -407,7 +407,7 @@ Each sprint is **one hour** and follows the same shape as Kindred Village:
 **Teachable moments to plant:**
 - AI cannot upload to itch.io or submit to CAC. Junior does both manually.
 - SFX sourcing: senior shows how to find CC0 sounds on freesound.org.
-- The theory-card text is Warren's writing, not AI's. *"This is the part that makes it YOUR game, not a generic game. Write what YOU learned."*
+- The theory-card text is your writing, not AI's. *"This is the part that makes it YOUR game, not a generic game. Write what YOU learned."*
 
 **Done when:** Live itch.io URL plays in a browser, CAC form submitted, repo tagged `v1.0`.
 
@@ -457,13 +457,13 @@ If a sprint is going long, cut from the bottom:
 
 ### NYU pipeline (high school programs)
 
-| Program | What | When | Cost | Warren eligible? |
+| Program | What | When | Cost | Eligible? |
 |---|---|---|---|---|
-| **Future Game Designers** (NYU Game Center) | Free 14-week spring workshop on Saturdays. HS freshmen, sophomores, juniors. Learn game design from NYU Game Center faculty. | Spring semester (apply in fall) | **FREE** | **Yes — spring 2027** (Warren will be a 9th-grade freshman). Apply fall 2026 WITH Globin as portfolio. |
+| **Future Game Designers** (NYU Game Center) | Free 14-week spring workshop on Saturdays. HS freshmen, sophomores, juniors. Learn game design from NYU Game Center faculty. | Spring semester (apply in fall) | **FREE** | **Yes — spring 2027** (9th-grade freshman). Apply fall 2026 WITH Globin as portfolio. |
 | **Tisch Summer HS Game Design** | 4-week residential. 3 college-level courses. Earn 6 NYU credits. Rising juniors/seniors only. | July–Aug (apply Dec of prior year) | ~$7,000+ (financial aid available) | **Summer 2028** at earliest (rising junior). Globin + Future Game Designers on portfolio = strong application. |
 
 **NYU action items:**
-1. **Now:** Warren already visited the showcase — write down what games impressed him and why. Use as design reference.
+1. **Now:** Write down what games impressed you at the showcase and why. Use as design reference.
 2. **Fall 2026:** Apply for Future Game Designers with Globin as the portfolio piece.
 3. **Fall 2027:** Apply for Tisch Summer HS Game Design.
 
@@ -499,7 +499,7 @@ itch.io hosts hundreds of jams per year. Strategy:
 - **Tags:** game-theory, cooperation, strategy, nonviolent, social-impact, arcade, webgl, nicky-case-inspired, moral-games
 - **Short description:** A real-time arcade-strategy game where your only weapons are good manners. Navigate levels of NPCs with real game-theory personalities — Copycats, Grudgers, Bullies — and prove that cooperation is the winning strategy. Inspired by Nicky Case's *The Evolution of Trust* and *We Become What We Behold*.
 - **Credits:**
-  - Game design & code: [Warren's name]
+  - Game design & code: [your name]
   - Mentorship: Jorge
   - Art: [source]
   - Music / SFX: [source]
@@ -511,7 +511,7 @@ itch.io hosts hundreds of jams per year. Strategy:
 - **App name:** Globin: Good Manners Win
 - **Platform:** WebGL (browser)
 - **What it does:** A real-time strategy game that teaches game theory through gameplay. The player controls Globin, a character whose only actions are cooperation — waving, sharing, shielding others, and amplifying positive interactions. NPCs behave according to real game-theory strategies (tit-for-tat, grim trigger, always defect). Each level teaches a concept; end-of-level cards name the real math behind what the player experienced. The game proves — through mechanics, not lectures — that good manners are the winning strategy.
-- **Why I built it:** [Warren writes 2–3 sentences in his own voice]
+- **Why I built it:** [write 2–3 sentences in your own voice]
 - **Tools used:** Unity, C#, GitHub Copilot CLI, Ralph spec-driven loop
 - **Demo URL:** [itch.io link]
 - **Source code:** [GitHub link]
@@ -521,7 +521,7 @@ itch.io hosts hundreds of jams per year. Strategy:
 | Segment | Duration | Content |
 |---|---|---|
 | **Problem** | 15 sec | "Most games teach you to win by fighting. What if the winning strategy is being kind?" |
-| **Personal story** | 30 sec | Warren talks about visiting the NYU Game Design Showcase, discovering Nicky Case's work, and asking "can you defeat them with good manners?" |
+| **Personal story** | 30 sec | Talk about visiting the NYU Game Design Showcase, discovering Nicky Case's work, and asking "can you defeat them with good manners?" |
 | **Live demo** | 90 sec | Play through Levels 1, 2, and 5. Show Copycat mirroring behavior, Grudger turning hostile after a mistake, Amplify spreading cooperation. Show the end-of-level game-theory card. |
 | **Why it matters** | 45 sec | "This game teaches real game theory — the math of cooperation. Robert Axelrod proved tit-for-tat wins. Nicky Case showed how feedback loops shape society. I turned that into a game you can play. Good manners win — and now I can prove it." |
 
@@ -539,11 +539,11 @@ itch.io hosts hundreds of jams per year. Strategy:
 
 ---
 
-## 12. Open decisions (for Warren + Jorge)
+## 12. Open decisions (before Sprint 1)
 
-1. **What does Globin look like?** Warren should sketch the character. The character IS the brand.
+1. **What does Globin look like?** Sketch the character. The character IS the brand.
 2. **Top-down or minimal isometric?** Recommend: top-down (simpler to build, cleaner for game-theory readability). Revisit after MVP.
-3. **Should NPCs have names?** Pure game-theory: label by strategy ("The Copycat"). More engaging: names + strategy ("Maya the Copycat"). Warren's call.
+3. **Should NPCs have names?** Pure game-theory: label by strategy ("The Copycat"). More engaging: names + strategy ("Maya the Copycat"). Your call.
 4. **Background narrative?** Option A: no story, pure arcade. Option B: one-sentence frame — *"Globin's village lost trust. Help rebuild it."* Recommend B — strengthens the CAC personal-story angle without adding writing scope.
 5. **MVP scope: 5 or 8 levels?** Plan says 5 for MVP, 8 as stretch. Ship 5 first. If it's fun at 5, add 6–8 post-CAC.
 
@@ -559,4 +559,4 @@ itch.io hosts hundreds of jams per year. Strategy:
 
 ---
 
-*Spec authored as a senior would author it, for a junior to execute against, with AI as the third pair of hands. The game theory is real. The game is Warren's.*
+*Spec authored as a senior would author it, for a junior to execute against, with AI as the third pair of hands. The game theory is real. The game is yours.*

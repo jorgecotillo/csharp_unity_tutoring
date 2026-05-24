@@ -2,7 +2,7 @@
 
 Six options, ordered from most-recommended to most-ambitious. Each is
 realistic for a focused 8th grader working 4–8 hours per week for 3–6
-months with AI-assisted coding. Warren should pick **one**.
+months with AI-assisted coding. You should pick **one**.
 
 Acronyms used throughout this document:
 - **CAC** = Congressional App Challenge (U.S. Congress competition).
@@ -18,7 +18,7 @@ Acronyms used throughout this document:
 
 For every option, "Why it wins" is written against the rubrics used by
 the primary target competitions (CAC and G4C). MIT THINK is noted as a
-future target for Warren's 9th-grade year (he is not eligible as an
+future target for your 9th-grade year (you are not eligible as an
 8th grader).
 
 ---
@@ -69,10 +69,10 @@ Product).
 4. User can save answers into a journal, reread them, and watch the
    philosophers "disagree" in a debate view.
 
-**Why it fits Warren:**
+**Why it fits you:**
 - Smaller scope than a full game — finishable in 3–4 months.
 - NPC-flavored: each philosopher is effectively a character with
-  voice, tone, and beliefs. Warren's **NPC** (Non-Player Character)
+  voice, tone, and beliefs. your **NPC** (Non-Player Character)
   design instincts transfer directly.
 - Text-first UI (User Interface), so art work is minimal.
 
@@ -81,7 +81,7 @@ Product).
   story. 2025 winners repeatedly paired AI with an adolescent
   emotional need (anxiety, identity, decision-making). This is a
   textbook fit.
-- **Future — MIT THINK (next year, when Warren is in 9th grade):**
+- **Future — MIT THINK (next year, when you're in 9th grade):**
   trivially reframes as a research question — "Can structured
   philosophical multi-perspective AI responses help adolescents make
   better decisions under stress?" — with a small user study
@@ -234,7 +234,7 @@ than as a score, the mechanics worked. That's the demo video:
 3 real middle-schoolers playing, then recapping what happened in the
 village in their own words.
 
-### Why it fits Warren
+### Why it fits you
 
 - Strategy game. NPC-heavy. Non-violent. Unity-shaped.
 - A natural next step from his existing Unity **NPC** work — same
@@ -287,10 +287,10 @@ conversation, build a park, host a festival. Victory is defined by the
 player ("I want them to become a peaceful trade hub", "I want them to
 become a community that supports its outsiders").
 
-**Why it fits Warren:** closest to pure strategy-game territory.
+**Why it fits you:** closest to pure strategy-game territory.
 
 **Why it wins:** strong originality angle; it's *about* the kind of
-game Warren wants to see exist instead of toxic multiplayer. Plays well
+game you want to see exist instead of toxic multiplayer. Plays well
 in the demo video — you can visibly speed-run a "good" society
 emerging.
 
@@ -298,8 +298,8 @@ emerging.
 for CAC submission.
 
 **Risks:** highest-risk option on this list because emergent sims are
-hard to *tune* into something fun. Only pick this if Warren has
-shown he can iterate on game feel.
+hard to *tune* into something fun. Only pick this if you've
+shown you can iterate on game feel.
 
 ---
 
@@ -314,7 +314,7 @@ them by choosing dialogue and small actions grounded in real
 evidence-based techniques (cognitive reframing, active listening,
 grounding exercises). Levels are short (5–10 minutes each).
 
-**Why it fits Warren:** strong narrative hook, NPC-driven, no
+**Why it fits you:** strong narrative hook, NPC-driven, no
 combat, no time pressure.
 
 **Why it wins:** clearest mental-health story of any option, which makes
@@ -324,7 +324,7 @@ because each technique can be cited to a peer-reviewed source.
 **Stack:** Unity 2D or a web-based visual novel framework (Ink +
 React).
 
-**Risks:** very writing-heavy. Only pick if Warren enjoys writing
+**Risks:** very writing-heavy. Only pick this if you enjoy writing
 dialogue.
 
 ---
@@ -340,7 +340,7 @@ play "argument cards" that use real rhetorical moves (appeal to ethos,
 bring in data, concede a point). Winning requires building consensus
 across factions, not defeating them.
 
-**Why it fits Warren:** pure strategy, zero violence, very Warren.
+**Why it fits you:** pure strategy, zero violence, exactly your kind of project.
 
 **Why it wins:** unique civics angle. CAC (being run by *Congress*)
 has a soft spot for civic-engagement projects.
@@ -364,7 +364,7 @@ each give a one-paragraph push in their own voice, plus a concrete next
 exercise. Think of it as Option 1's softer cousin — aimed at creative
 block, not life decisions.
 
-**Why it fits Warren:** simplest option on the list. Good fallback if
+**Why it fits you:** simplest option on the list. Good fallback if
 scope on Options 1–5 feels too big.
 
 **Why it wins:** easier rubric story for pure CAC — "I built a tool
