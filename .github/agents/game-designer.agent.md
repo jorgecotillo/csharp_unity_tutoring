@@ -162,6 +162,7 @@ Cross-link any existing spec (e.g. a JAM_SPRINT_SPEC.md) and reuse its naming/sc
 - **Audio** → `audio-game-designer` (with the audio brief).
 - **Build** → `goblin-decompose` (to turn the STORY_SPEC into a task DAG and dispatch parallel `goblin-build` agents) or directly to `ralph-build` for a single feature.
 - **Design verification** → `goblin-verify` (does the build match the thesis & win/lose?).
+- **Ship it (WebGL build + itch.io deploy)** → `unity-webgl-deployer` (builds the Unity 6 WebGL target, strips secrets, and packages the itch.io upload). You do not build or deploy yourself.
 
 You do not write engine code. If asked to, produce the spec/task instead and route it to the build agents.
 
