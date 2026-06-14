@@ -33,6 +33,12 @@ namespace GoblinSiege.Systems
         [Header("Deploy")]
         [SerializeField] private Transform deployPoint;
 
+        [Header("Startup")]
+        [Tooltip("If false, BeginRaid must be called manually (e.g. by RaidBootstrap.Inject).")]
+        [SerializeField] private bool autoStartOnPlay = true;
+
+        private string _rawJsonOverride;
+
         /// <summary>Fires when the raid ends. Args: (result, looted, quota, surplus).</summary>
         public event Action<RaidResult, int, int, int> OnRaidEnded;
 
@@ -49,6 +55,27 @@ namespace GoblinSiege.Systems
 
         private void Start()
         {
+            if (autoStartOnPlay) BeginRaid();
+        }
+
+        /// <summary>
+        /// Runtime dependency injection used by RaidBootstrap (no scene/prefab wiring).
+        /// Sets all references plus the raw raid JSON, then starts the raid.
+        /// </summary>
+        public void Inject(string rawJson, AlarmSystem alarmSys, QuotaSystem quotaSys,
+            GarrisonSpawner garrisonSys, ExtractionZone extractionZone,
+            GoblinUnit goblinPrefab, LootCache cachePrefabRef, Gate gatePrefabRef, Transform deploy)
+        {
+            _rawJsonOverride = rawJson;
+            alarm = alarmSys;
+            quota = quotaSys;
+            garrison = garrisonSys;
+            extraction = extractionZone;
+            goblinUnitPrefab = goblinPrefab;
+            cachePrefab = cachePrefabRef;
+            gatePrefab = gatePrefabRef;
+            deployPoint = deploy;
+            autoStartOnPlay = false;
             BeginRaid();
         }
 
@@ -76,6 +103,8 @@ namespace GoblinSiege.Systems
 
         private RaidData ParseRaidData()
         {
+            if (!string.IsNullOrEmpty(_rawJsonOverride))
+                return JsonUtility.FromJson<RaidData>(_rawJsonOverride);
             if (raidJson == null)
             {
                 Debug.LogError("[RaidManager] raidJson TextAsset not assigned.");

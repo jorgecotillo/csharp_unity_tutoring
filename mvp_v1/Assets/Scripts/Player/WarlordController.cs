@@ -25,6 +25,9 @@ namespace GoblinSiege.Player
 
         public bool WarhornUsed { get; private set; }
 
+        /// <summary>Runtime injection for RaidBootstrap (no scene wiring).</summary>
+        public void SetAlarm(AlarmSystem alarmSys) => alarm = alarmSys;
+
         private void Awake()
         {
             _body = GetComponent<Rigidbody2D>();

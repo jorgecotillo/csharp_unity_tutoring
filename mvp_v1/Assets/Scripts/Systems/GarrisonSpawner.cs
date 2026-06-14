@@ -16,6 +16,13 @@ namespace GoblinSiege.Systems
         [SerializeField] private HumanUnit humanPrefab;
         [SerializeField] private Transform[] spawnPoints;
 
+        /// <summary>Runtime injection for RaidBootstrap (no scene wiring).</summary>
+        public void SetSpawnAssets(HumanUnit prefab, Transform[] points)
+        {
+            humanPrefab = prefab;
+            spawnPoints = points;
+        }
+
         private AlarmSystem _alarm;
         private float _alertedInterval = 18f;
         private float _mobilizedInterval = 10f;

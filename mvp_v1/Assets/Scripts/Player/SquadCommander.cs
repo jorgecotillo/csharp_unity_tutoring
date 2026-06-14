@@ -27,6 +27,13 @@ namespace GoblinSiege.Player
 
         private readonly List<Squad> _selection = new();
 
+        /// <summary>Runtime injection for RaidBootstrap (no scene wiring).</summary>
+        public void Setup(RaidManager raidRef, Camera cam)
+        {
+            raid = raidRef;
+            worldCamera = cam;
+        }
+
         private void Awake()
         {
             _input = GetComponent<PlayerInput>();
