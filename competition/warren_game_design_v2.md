@@ -86,6 +86,39 @@ Reuse the hybrid camera + selection from [warren_game_design.md](warren_game_des
 
 ---
 
+### Reinforcement Timer (New)
+
+Purpose: provide a clear, tunable delay before a large group of human reinforcements arrives. This creates tension, gives players a chance to prepare or evacuate, and makes encounters feel more dramatic.
+
+- Gameplay: when a reinforcement trigger is reached (player enters area / alarm is raised / mission timer hits threshold), start a countdown. During the countdown the player can hear/see warnings. When the timer reaches zero, a large group of human reinforcements spawns and begins moving toward objectives.
+- Feel: use an audible alarm and a visual countdown to build tension. Consider staged warnings: distant footsteps/voices at T-30s, alarms at T-15s, flash red lights at T-5s.
+
+Parameters to expose for tuning:
+
+- `initialDelay` (float): base time between trigger and first reinforcement wave (seconds). Default 60s.
+- `warningTime` (float): how long before arrival to start visual/audio warnings (seconds). Default 30s.
+- `waveCount` (int): how many waves of human reinforcements arrive. Default 3.
+- `spawnInterval` (float): spacing between waves after the first arrival (seconds). Default 10s.
+- `reinforcementsPerWave` (int): number of humans per wave. Default 6.
+
+UI & Feedback:
+
+- Show a prominent countdown in the HUD (big numeric timer), and optionally a radial timer for the immediate area.
+- Play escalating audio cues as timer approaches zero.
+- Flashing lights or environment changes can reinforce urgency.
+
+Balancing notes:
+
+- Shorter `initialDelay` increases pressure and reduces player decision time; lengthen for slower-paced rooms.
+- Use `waveCount` and `reinforcementsPerWave` to scale difficulty rather than only decreasing `initialDelay`.
+- Consider making the timer interruptible (player can disable alarm or destroy a comms object) for player agency.
+
+Integration:
+
+- Use a reusable `ReinforcementTimer` MonoBehaviour to start the countdown from triggers. The script exposes a UnityEvent you can hook to your spawner(s) to actually instantiate AI units when the timer completes.
+- Hook UI elements (TextMeshPro or UI Text) to the timer's on-tick callback or poll `GetRemaining()` each frame.
+
+
 ## 4. Short & sweet story — the message IS the mechanic
 
 **Thesis (one sentence):** *"Greed is a clock. The more you take, the louder the world gets — and the bravest raid is knowing when to run."*
