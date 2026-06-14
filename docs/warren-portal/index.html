@@ -374,26 +374,26 @@
         .arc-emoji { display: block; font-size: 1.6rem; margin-bottom: 0.3rem; }
         .gc-foot { margin-top: 1.2rem; color: var(--muted); font-size: 0.9rem; font-style: italic; }
 
-        /* Grown-up zone */
-        .dad-zone {
+        /* Tutor Zone */
+        .tutor-zone {
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 12px;
             margin-bottom: 2.5rem;
             overflow: hidden;
         }
-        .dad-zone summary {
+        .tutor-zone summary {
             cursor: pointer;
             padding: 1.2rem 1.5rem;
             font-weight: 600;
             color: var(--muted);
             list-style: none;
         }
-        .dad-zone summary::-webkit-details-marker { display: none; }
-        .dad-zone summary::before { content: '▸ '; }
-        .dad-zone[open] summary::before { content: '▾ '; }
-        .dad-zone-body { padding: 0 1.5rem 1.5rem; }
-        .dad-zone-body .section-title { margin-top: 1.5rem; }
+        .tutor-zone summary::-webkit-details-marker { display: none; }
+        .tutor-zone summary::before { content: '▸ '; }
+        .tutor-zone[open] summary::before { content: '▾ '; }
+        .tutor-zone-body { padding: 0 1.5rem 1.5rem; }
+        .tutor-zone-body .section-title { margin-top: 1.5rem; }
 
         @media (max-width: 560px) {
             .gc-row { grid-template-columns: 1fr; gap: 0.25rem; }
@@ -445,12 +445,12 @@
             <a href="#" id="liveshare-toggle" class="card" onclick="toggleLiveShare(event)">
                 <div class="card-icon">🔗</div>
                 <div class="card-body">
-                    <h3>Join a Live Session with Dad <span class="badge badge-orange">When Scheduled</span></h3>
-                    <p>Paste the link Dad sends you and code together in real time. Sign in with your <strong>Microsoft account</strong> (same one as Minecraft / Xbox / Outlook) — <strong>no GitHub needed.</strong></p>
+                    <h3>Join a Live Session with Jorge <span class="badge badge-orange">When Scheduled</span></h3>
+                    <p>Paste the link Jorge sends you and code together in real time. Sign in with your <strong>Microsoft account</strong> (same one as Minecraft / Xbox / Outlook) — <strong>no GitHub needed.</strong></p>
                 </div>
             </a>
             <div id="liveshare-url">
-                <p style="color: var(--muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Paste the link Dad sent you:</p>
+                <p style="color: var(--muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Paste the link Jorge sent you:</p>
                 <input type="text" id="liveshare-input" placeholder="https://vscode.dev/liveshare/..." />
                 <button onclick="joinLiveShare()">Join Session →</button>
             </div>
@@ -488,15 +488,15 @@
                 <strong>Don't worry — that's totally normal!</strong><br><br>
                 1. <strong>Don't delete anything</strong> — your work is safe.<br>
                 2. <strong>Take a screenshot</strong> of what you see.<br>
-                3. <strong>Text Dad</strong> the screenshot — he'll sort it out fast.
+                3. <strong>Text Jorge</strong> the screenshot — he'll sort it out fast.
             </p>
         </div>
 
-        <!-- ========== GROWN-UP ZONE ========== -->
-        <h2 class="section-title">⚙️ Grown-up Zone</h2>
-        <details class="dad-zone">
-            <summary>Setup, GitHub &amp; browser tools — for Dad</summary>
-            <div class="dad-zone-body">
+        <!-- ========== Tutor Zone ========== -->
+        <h2 class="section-title">⚙️ Tutor Zone</h2>
+        <details class="tutor-zone">
+            <summary>Setup, GitHub &amp; browser tools — for Jorge</summary>
+            <div class="tutor-zone-body">
 
                 <!-- ===== CODING IN THE BROWSER ===== -->
                 <h2 class="section-title">✨ Code in Your Browser (no install needed)</h2>
@@ -608,7 +608,7 @@
             if (url && (url.includes('vscode.dev') || url.includes('liveshare') || url.includes('insiders'))) {
                 window.open(url, '_blank');
             } else {
-                alert('Please paste a valid Live Share link from Dad.');
+                alert('Please paste a valid Live Share link from Jorge.');
             }
         }
 
