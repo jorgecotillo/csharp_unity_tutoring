@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warren's Dev Hub 🏰</title>
+    <title>Warren's Game Studio ⚔️</title>
     <style>
         :root {
             --bg: #0d1117;
@@ -299,137 +299,308 @@
             font-size: 0.9rem;
             font-weight: 600;
         }
+
+        /* Progress tracker */
+        .progress {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+        }
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: 90px;
+            opacity: 0.5;
+        }
+        .progress-step.current, .progress-step.done { opacity: 1; }
+        .progress-emoji {
+            font-size: 1.8rem;
+            width: 56px; height: 56px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            margin-bottom: 0.4rem;
+        }
+        .progress-step.current .progress-emoji { border-color: var(--accent-orange); }
+        .progress-step.done .progress-emoji { border-color: var(--accent-green); }
+        .progress-label { font-weight: 700; font-size: 0.95rem; }
+        .progress-sub { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .progress-pill {
+            font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; padding: 0.2em 0.6em; border-radius: 999px;
+        }
+        .pill-green { background: #238636; color: #fff; }
+        .pill-orange { background: #9e6a03; color: #fff; }
+        .pill-gray { background: var(--border); color: var(--muted); }
+        .progress-line { flex: 1; height: 2px; background: var(--border); margin-top: 28px; min-width: 20px; max-width: 60px; }
+
+        .badge-gray { background: var(--border); color: var(--muted); }
+        .card.locked { opacity: 0.6; }
+
+        /* Game Card */
+        .game-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        .gc-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 1rem;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .gc-q { font-weight: 700; }
+        .gc-a { color: var(--muted); line-height: 1.5; }
+        .gc-a strong { color: var(--text); }
+        .gc-arc {
+            display: flex; flex-wrap: wrap; gap: 0.75rem;
+            margin-top: 1.2rem;
+        }
+        .arc-beat {
+            flex: 1; min-width: 160px;
+            background: #0d1117; border: 1px solid var(--border);
+            border-radius: 8px; padding: 0.8rem; text-align: center;
+            font-size: 0.9rem; color: var(--muted);
+        }
+        .arc-emoji { display: block; font-size: 1.6rem; margin-bottom: 0.3rem; }
+        .gc-foot { margin-top: 1.2rem; color: var(--muted); font-size: 0.9rem; font-style: italic; }
+
+        /* Grown-up zone */
+        .dad-zone {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 2.5rem;
+            overflow: hidden;
+        }
+        .dad-zone summary {
+            cursor: pointer;
+            padding: 1.2rem 1.5rem;
+            font-weight: 600;
+            color: var(--muted);
+            list-style: none;
+        }
+        .dad-zone summary::-webkit-details-marker { display: none; }
+        .dad-zone summary::before { content: '▸ '; }
+        .dad-zone[open] summary::before { content: '▾ '; }
+        .dad-zone-body { padding: 0 1.5rem 1.5rem; }
+        .dad-zone-body .section-title { margin-top: 1.5rem; }
+
+        @media (max-width: 560px) {
+            .gc-row { grid-template-columns: 1fr; gap: 0.25rem; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🏰 Warren's Dev Hub</h1>
-            <p>Everything you need to work on Kindred Village — one page, zero hassle.</p>
+            <h1>⚔️ Warren's Game Studio</h1>
+            <p>Your home base for building <strong>Goblin Siege</strong> — one page, zero hassle.</p>
         </header>
 
-        <!-- ========== CODING IN THE BROWSER ========== -->
-        <h2 class="section-title">✨ Code in Your Browser (no install needed)</h2>
-        <div class="cards">
-            <a href="https://github.dev/jorgecotillo/csharp_unity_tutoring" target="_blank" class="card">
-                <div class="card-icon">📝</div>
-                <div class="card-body">
-                    <h3>Open in Browser Editor <span class="badge badge-green">Instant</span></h3>
-                    <p>Opens a lightweight VS Code right in your browser. Great for quick edits, reading code, and browsing files.</p>
-                </div>
-            </a>
-
-            <a href="https://github.com/codespaces/new?repo=jorgecotillo/csharp_unity_tutoring&ref=main" target="_blank" class="card">
-                <div class="card-icon">☁️</div>
-                <div class="card-body">
-                    <h3>Open Cloud Workspace <span class="badge badge-blue">Full IDE</span></h3>
-                    <p>A full VS Code + terminal running in the cloud. Great for editing C# scripts and using Copilot — no install needed. Takes ~30 seconds to start. (For Unity play-testing, use your local Unity Editor.)</p>
-                </div>
-            </a>
-
-            <a href="https://github.com/copilot" target="_blank" class="card">
-                <div class="card-icon">🤖</div>
-                <div class="card-body">
-                    <h3>Copilot Chat <span class="badge badge-blue">AI Help</span></h3>
-                    <p>Ask Copilot coding questions, get help debugging, or learn concepts. Opens GitHub Copilot Chat in your browser. <em>(First time? You may need to enable Copilot Free in your GitHub Settings → Copilot.)</em></p>
-                </div>
-            </a>
+        <!-- ========== PROGRESS TRACKER ========== -->
+        <div class="progress">
+            <div class="progress-step current">
+                <div class="progress-emoji">🧠</div>
+                <div class="progress-label">Session 1</div>
+                <div class="progress-sub">Dream It</div>
+                <div class="progress-pill pill-orange">Now</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step">
+                <div class="progress-emoji">🔨</div>
+                <div class="progress-label">Session 2</div>
+                <div class="progress-sub">Build It</div>
+                <div class="progress-pill pill-gray">Next</div>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step">
+                <div class="progress-emoji">🚀</div>
+                <div class="progress-label">Session 3</div>
+                <div class="progress-sub">Ship It</div>
+                <div class="progress-pill pill-gray">Soon</div>
+            </div>
         </div>
 
-        <!-- ========== PAIR WITH JOSE ========== -->
-        <h2 class="section-title">🤝 Pair with Jorge (real-time sessions)</h2>
+        <!-- ========== JUMP IN ========== -->
+        <h2 class="section-title">🎮 Jump In</h2>
         <div class="cards">
+            <a href="#" class="card locked" onclick="playBuild(event)">
+                <div class="card-icon">▶️</div>
+                <div class="card-body">
+                    <h3>Play the Latest Build <span class="badge badge-gray">🔒 After Session 2</span></h3>
+                    <p>Once we build your game, this opens <strong>Goblin Siege</strong> right in your browser — no login, just play.</p>
+                </div>
+            </a>
+
             <a href="#" id="liveshare-toggle" class="card" onclick="toggleLiveShare(event)">
                 <div class="card-icon">🔗</div>
                 <div class="card-body">
-                    <h3>Join Jorge's Live Session <span class="badge badge-orange">When Scheduled</span></h3>
-                    <p>Click here to enter a Live Share link that Jorge sends you. You'll join his VS Code in real-time — edit together, see the same code. <em>(The link should look like <code>https://vscode.dev/liveshare/...</code> for browser access.)</em></p>
+                    <h3>Join a Live Session with Dad <span class="badge badge-orange">When Scheduled</span></h3>
+                    <p>Paste the link Dad sends you and code together in real time. Sign in with your <strong>Microsoft account</strong> (same one as Minecraft / Xbox / Outlook) — <strong>no GitHub needed.</strong></p>
                 </div>
             </a>
             <div id="liveshare-url">
-                <p style="color: var(--muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Paste the link Jorge sent you:</p>
+                <p style="color: var(--muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Paste the link Dad sent you:</p>
                 <input type="text" id="liveshare-input" placeholder="https://vscode.dev/liveshare/..." />
                 <button onclick="joinLiveShare()">Join Session →</button>
             </div>
+
+            <a href="#gamecard" class="card">
+                <div class="card-icon">🃏</div>
+                <div class="card-body">
+                    <h3>My Game Card <span class="badge badge-blue">The Plan</span></h3>
+                    <p>The one-page plan for your whole game. Scroll down to see it — this is what tells the build-bots what to make.</p>
+                </div>
+            </a>
         </div>
 
-        <!-- ========== SET UP YOUR MAC ========== -->
-        <h2 class="section-title">💻 Set Up Your Mac (for working offline)</h2>
-        <div class="setup-box">
-            <h3>🚀 One-Command Setup</h3>
-            <p style="color: var(--muted); margin-bottom: 1rem;">
-                This installs everything you need: Git, GitHub login, VS Code, and Copilot. Takes about 5 minutes.
-            </p>
-            <ol>
-                <li>Open <strong>Terminal</strong> on your Mac — press <code>Cmd + Space</code>, type <strong>Terminal</strong>, press Enter</li>
-                <li>Copy the command below and paste it into Terminal</li>
-                <li>Press <strong>Enter</strong> and follow the prompts</li>
-                <li>When a browser window opens, log in with your GitHub account and click <strong>Authorize</strong></li>
-            </ol>
-            <div class="code-block">
-                <button class="copy-btn" onclick="copySetupCommand()">📋 Copy</button>
-                <code>curl -fsSL https://raw.githubusercontent.com/jorgecotillo/csharp_unity_tutoring/main/docs/warren-portal/setup_warren_mac.sh -o /tmp/setup.sh && bash /tmp/setup.sh</code>
+        <!-- ========== GAME CARD ========== -->
+        <h2 class="section-title" id="gamecard">🃏 My Game Card — Goblin Siege</h2>
+        <div class="game-card">
+            <div class="gc-row"><span class="gc-q">🛡️ What am I?</span><span class="gc-a">The <strong>Warden</strong> of a medieval fortress. I lead a squad of up to <strong>5 defenders</strong> and move them around the battlefield.</span></div>
+            <div class="gc-row"><span class="gc-q">🏆 How do I win?</span><span class="gc-a">Hoard <strong>500 gold</strong> before my castle falls. (Endless mode: survive as long as you can — gold = high score.)</span></div>
+            <div class="gc-row"><span class="gc-q">💀 What kills me?</span><span class="gc-a">All my troops die, <em>or</em> the goblins fully destroy my castle.</span></div>
+            <div class="gc-row"><span class="gc-q">🔁 What do I do every second?</span><span class="gc-a">Move my squad (<strong>WASD</strong>) to block chokepoints and focus-fire goblins. Troops auto-attack; I handle the positioning.</span></div>
+            <div class="gc-row"><span class="gc-q">📈 What makes it harder?</span><span class="gc-a">Every wave the horde grows and unlocks scarier units — Wolfriders, Sappers, Shamans, then <strong>Trolls</strong> and Siege Towers.</span></div>
+            <div class="gc-row"><span class="gc-q">🤯 What's the coolest moment?</span><span class="gc-a">The <strong>Troll King</strong> boss at wave 20+ — a 500-HP monster worth 50 gold if you can bring him down.</span></div>
+            <div class="gc-arc">
+                <div class="arc-beat"><span class="arc-emoji">😌</span> Calm — early waves, just scouts &amp; warriors</div>
+                <div class="arc-beat"><span class="arc-emoji">😬</span> Scary — wolfriders, sappers &amp; trolls pile on</div>
+                <div class="arc-beat"><span class="arc-emoji">👑</span> Boss — the Troll King siege</div>
             </div>
+            <p class="gc-foot">This is your starting plan, straight from your design doc. We tweak <em>anything</em> on it together in Session 1 — your call. 🎨</p>
         </div>
 
-        <!-- ========== GIT CHEAT SHEET ========== -->
-        <h2 class="section-title">📖 Quick Git Guide (the only 3 things you need)</h2>
-        <div class="cheat-sheet">
-            <h3>Using VS Code's Built-In Git (no terminal needed!)</h3>
-
-            <div class="step">
-                <div class="step-number">1</div>
-                <div class="step-content">
-                    <h4>📥 Get the latest code (Pull)</h4>
-                    <p>Before you start working, always grab the latest changes.<br>
-                    In VS Code: click the <strong>Source Control icon</strong> (the branch symbol on the left sidebar) → click the <strong>⋯ menu</strong> (three dots) → <strong>Pull</strong>.<br>
-                    Or just press <code>Cmd + Shift + P</code>, type <code>Git: Pull</code>, and press Enter.</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-number">2</div>
-                <div class="step-content">
-                    <h4>💾 Save your work (Commit)</h4>
-                    <p>After making changes, you need to "save" them to Git.<br>
-                    In the Source Control panel: you'll see your changed files listed. Click the <strong>+</strong> next to each file (or click <strong>+</strong> next to "Changes" to add all). Type a short message describing what you did (e.g., "Added goblin spawn logic"). Click the <strong>✓ Commit</strong> button.</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-number">3</div>
-                <div class="step-content">
-                    <h4>📤 Share your work (Push)</h4>
-                    <p>After committing, push your changes so Jorge can see them.<br>
-                    Click the <strong>⋯ menu</strong> → <strong>Push</strong>. That's it! Your code is now on GitHub.<br>
-                    Or press <code>Cmd + Shift + P</code>, type <code>Git: Push</code>, and press Enter.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- ========== PANIC BUTTON ========== -->
+        <!-- ========== STUCK? ========== -->
         <div class="panic-box">
-            <h3>🆘 Something Went Wrong?</h3>
+            <h3>🆘 Stuck or something looks broken?</h3>
             <p>
-                <strong>Don't panic!</strong> Git is confusing even for professionals. Here's what to do:<br><br>
-                1. <strong>Don't delete anything</strong> — your code is safe.<br>
-                2. <strong>Take a screenshot</strong> of the error message.<br>
-                3. <strong>Text Jorge</strong> with the screenshot — he'll fix it in 5 minutes.<br><br>
-                If you're stuck and Jorge isn't available, you can always start fresh by opening the <strong>Browser Editor</strong> at the top of this page — it always has the latest code.
+                <strong>Don't worry — that's totally normal!</strong><br><br>
+                1. <strong>Don't delete anything</strong> — your work is safe.<br>
+                2. <strong>Take a screenshot</strong> of what you see.<br>
+                3. <strong>Text Dad</strong> the screenshot — he'll sort it out fast.
             </p>
         </div>
+
+        <!-- ========== GROWN-UP ZONE ========== -->
+        <h2 class="section-title">⚙️ Grown-up Zone</h2>
+        <details class="dad-zone">
+            <summary>Setup, GitHub &amp; browser tools — for Dad</summary>
+            <div class="dad-zone-body">
+
+                <!-- ===== CODING IN THE BROWSER ===== -->
+                <h2 class="section-title">✨ Code in Your Browser (no install needed)</h2>
+                <div class="cards">
+                    <a href="https://github.dev/jorgecotillo/csharp_unity_tutoring" target="_blank" class="card">
+                        <div class="card-icon">📝</div>
+                        <div class="card-body">
+                            <h3>Open in Browser Editor <span class="badge badge-green">Instant</span></h3>
+                            <p>Opens a lightweight VS Code right in your browser. Great for quick edits, reading code, and browsing files.</p>
+                        </div>
+                    </a>
+
+                    <a href="https://github.com/codespaces/new?repo=jorgecotillo/csharp_unity_tutoring&ref=main" target="_blank" class="card">
+                        <div class="card-icon">☁️</div>
+                        <div class="card-body">
+                            <h3>Open Cloud Workspace <span class="badge badge-blue">Full IDE</span></h3>
+                            <p>A full VS Code + terminal running in the cloud. Great for editing C# scripts and using Copilot — no install needed. Takes ~30 seconds to start. (For Unity play-testing, use your local Unity Editor.)</p>
+                        </div>
+                    </a>
+
+                    <a href="https://github.com/copilot" target="_blank" class="card">
+                        <div class="card-icon">🤖</div>
+                        <div class="card-body">
+                            <h3>Copilot Chat <span class="badge badge-blue">AI Help</span></h3>
+                            <p>Ask Copilot coding questions, get help debugging, or learn concepts. Opens GitHub Copilot Chat in your browser. <em>(First time? You may need to enable Copilot Free in your GitHub Settings → Copilot.)</em></p>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- ===== SET UP YOUR MAC ===== -->
+                <h2 class="section-title">💻 Set Up the Mac (for working offline)</h2>
+                <div class="setup-box">
+                    <h3>🚀 One-Command Setup</h3>
+                    <p style="color: var(--muted); margin-bottom: 1rem;">
+                        This installs everything you need: Git, GitHub login, VS Code, and Copilot. Takes about 5 minutes.
+                    </p>
+                    <ol>
+                        <li>Open <strong>Terminal</strong> on the Mac — press <code>Cmd + Space</code>, type <strong>Terminal</strong>, press Enter</li>
+                        <li>Copy the command below and paste it into Terminal</li>
+                        <li>Press <strong>Enter</strong> and follow the prompts</li>
+                        <li>When a browser window opens, log in with your GitHub account and click <strong>Authorize</strong></li>
+                    </ol>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copySetupCommand()">📋 Copy</button>
+                        <code>curl -fsSL https://raw.githubusercontent.com/jorgecotillo/csharp_unity_tutoring/main/docs/warren-portal/setup_warren_mac.sh -o /tmp/setup.sh && bash /tmp/setup.sh</code>
+                    </div>
+                </div>
+
+                <!-- ===== GIT CHEAT SHEET ===== -->
+                <h2 class="section-title">📖 Quick Git Guide (the only 3 things you need)</h2>
+                <div class="cheat-sheet">
+                    <h3>Using VS Code's Built-In Git (no terminal needed!)</h3>
+
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>📥 Get the latest code (Pull)</h4>
+                            <p>Before you start working, always grab the latest changes.<br>
+                            In VS Code: click the <strong>Source Control icon</strong> (the branch symbol on the left sidebar) → click the <strong>⋯ menu</strong> (three dots) → <strong>Pull</strong>.<br>
+                            Or just press <code>Cmd + Shift + P</code>, type <code>Git: Pull</code>, and press Enter.</p>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>💾 Save your work (Commit)</h4>
+                            <p>After making changes, you need to "save" them to Git.<br>
+                            In the Source Control panel: you'll see your changed files listed. Click the <strong>+</strong> next to each file (or click <strong>+</strong> next to "Changes" to add all). Type a short message describing what you did (e.g., "Added goblin spawn logic"). Click the <strong>✓ Commit</strong> button.</p>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>📤 Share your work (Push)</h4>
+                            <p>After committing, push your changes so they're saved online.<br>
+                            Click the <strong>⋯ menu</strong> → <strong>Push</strong>. That's it! Your code is now on GitHub.<br>
+                            Or press <code>Cmd + Shift + P</code>, type <code>Git: Push</code>, and press Enter.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </details>
 
         <footer>
-            Built for Warren 🎮 | Powered by GitHub
+            Built for Warren ⚔️ | Goblin Siege · powered by GitHub &amp; Copilot
         </footer>
     </div>
 
     <script>
+        function playBuild(e) {
+            e.preventDefault();
+            alert("Your game isn't built yet! 🔨\n\nWe build Goblin Siege together in Session 2 — then this button comes alive and you can play it right here.");
+        }
+
         function toggleLiveShare(e) {
             e.preventDefault();
             const el = document.getElementById('liveshare-url');
-            el.style.display = el.style.display === 'none' ? 'block' : 'block';
-            document.getElementById('liveshare-input').focus();
+            el.style.display = el.style.display === 'block' ? 'none' : 'block';
+            if (el.style.display === 'block') {
+                document.getElementById('liveshare-input').focus();
+            }
         }
 
         function joinLiveShare() {
@@ -437,7 +608,7 @@
             if (url && (url.includes('vscode.dev') || url.includes('liveshare') || url.includes('insiders'))) {
                 window.open(url, '_blank');
             } else {
-                alert('Please paste a valid Live Share link from Jorge.');
+                alert('Please paste a valid Live Share link from Dad.');
             }
         }
 

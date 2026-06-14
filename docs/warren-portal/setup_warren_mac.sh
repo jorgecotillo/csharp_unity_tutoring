@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-#  Kindred Village — Warren's Mac Setup Script
+#  Goblin Siege — Warren's Mac Setup Script
 #  
 #  What this does:
 #    1. Installs Homebrew (Mac package manager) if not installed
@@ -35,7 +35,7 @@ NC='\033[0m' # No Color
 
 echo ""
 echo -e "${BLUE}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   🏰 Kindred Village — Project Setup for Mac    ║${NC}"
+echo -e "${BLUE}║   ⚔️ Goblin Siege — Project Setup for Mac       ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -189,10 +189,8 @@ echo -e "${GREEN}║   1. VS Code is opening your project now...      ║${NC}"
 echo -e "${GREEN}║   2. Sign into Copilot (click the Copilot        ║${NC}"
 echo -e "${GREEN}║      icon in the bottom-right of VS Code)        ║${NC}"
 echo -e "${GREEN}║   3. For Unity: Open Unity Hub → Add project     ║${NC}"
-echo -e "${GREEN}║      from disk → navigate to:                    ║${NC}"
-echo -e "${GREEN}║      Desktop/csharp_unity_tutoring/              ║${NC}"
-echo -e "${GREEN}║        warren_competitions/                      ║${NC}"
-echo -e "${GREEN}║          kindred_village_unity                   ║${NC}"
+echo -e "${GREEN}║      from disk → open the Goblin Siege Unity     ║${NC}"
+echo -e "${GREEN}║      project (we create it in Session 1!)        ║${NC}"
 echo -e "${GREEN}║   4. Have fun coding! 🎮                          ║${NC}"
 echo -e "${GREEN}║                                                  ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
@@ -203,4 +201,4 @@ echo ""
 
 # Open VS Code in the project folder
 echo -e "${BLUE}Opening VS Code...${NC}"
-code "$CLONE_DIR/warren_competitions" 2>/dev/null &
+code "$CLONE_DIR" 2>/dev/null &
