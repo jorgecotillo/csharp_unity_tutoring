@@ -1,0 +1,20 @@
+{
+    "id": 1,
+    "name": "Thornbrook Hamlet",
+    "act": 1,
+    "quota": 100,
+    "alarmFillPerSecond": 0.6,
+    "garrisonRoster": ["Militia"],
+    "reinforceIntervalByThreshold": { "alerted": 22, "mobilized": 14 },
+    "gates": [
+        { "pos": [0, 4], "hp": 80 }
+    ],
+    "caches": [
+        { "type": "Crate", "pos": [-4, 6], "guards": 0, "inKeep": false },
+        { "type": "Crate", "pos": [4, 6], "guards": 0, "inKeep": false },
+        { "type": "Chest", "pos": [-3, 9], "guards": 1, "inKeep": false },
+        { "type": "Chest", "pos": [3, 9], "guards": 1, "inKeep": false },
+        { "type": "Granary", "pos": [0, 12], "guards": 2, "inKeep": false }
+    ],
+    "extractionEdge": "south"
+}

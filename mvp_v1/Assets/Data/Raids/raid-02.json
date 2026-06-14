@@ -1,0 +1,22 @@
+{
+    "id": 2,
+    "name": "Mossford Crossing",
+    "act": 1,
+    "quota": 140,
+    "alarmFillPerSecond": 0.8,
+    "garrisonRoster": ["Militia"],
+    "reinforceIntervalByThreshold": { "alerted": 20, "mobilized": 12 },
+    "gates": [
+        { "pos": [-2, 4], "hp": 90 },
+        { "pos": [3, 5], "hp": 90 }
+    ],
+    "caches": [
+        { "type": "Crate", "pos": [-5, 6], "guards": 0, "inKeep": false },
+        { "type": "Chest", "pos": [-3, 9], "guards": 1, "inKeep": false },
+        { "type": "Chest", "pos": [4, 9], "guards": 1, "inKeep": false },
+        { "type": "Granary", "pos": [-1, 12], "guards": 2, "inKeep": false },
+        { "type": "Granary", "pos": [4, 12], "guards": 2, "inKeep": false },
+        { "type": "Vault", "pos": [0, 15], "guards": 4, "inKeep": true }
+    ],
+    "extractionEdge": "south"
+}

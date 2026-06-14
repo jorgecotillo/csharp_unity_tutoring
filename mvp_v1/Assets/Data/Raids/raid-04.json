@@ -1,0 +1,24 @@
+{
+    "id": 4,
+    "name": "Greymill Village",
+    "act": 2,
+    "quota": 250,
+    "alarmFillPerSecond": 1.2,
+    "garrisonRoster": ["Militia", "Crossbow", "Pikeman"],
+    "reinforceIntervalByThreshold": { "alerted": 16, "mobilized": 9 },
+    "gates": [
+        { "pos": [-3, 4], "hp": 120 },
+        { "pos": [3, 4], "hp": 120 },
+        { "pos": [0, 10], "hp": 150 }
+    ],
+    "caches": [
+        { "type": "Chest", "pos": [-5, 6], "guards": 1, "inKeep": false },
+        { "type": "Chest", "pos": [5, 6], "guards": 1, "inKeep": false },
+        { "type": "Granary", "pos": [-4, 9], "guards": 2, "inKeep": false },
+        { "type": "Granary", "pos": [4, 9], "guards": 2, "inKeep": false },
+        { "type": "Granary", "pos": [0, 8], "guards": 2, "inKeep": false },
+        { "type": "Vault", "pos": [-2, 14], "guards": 5, "inKeep": true },
+        { "type": "Vault", "pos": [2, 14], "guards": 6, "inKeep": true }
+    ],
+    "extractionEdge": "south"
+}
