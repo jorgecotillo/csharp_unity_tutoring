@@ -23,6 +23,19 @@ namespace GoblinSiege.Bootstrap
         [SerializeField] private float cameraSize = 11f;
         [SerializeField] private Vector2 cameraCenter = new(0f, 8f);
 
+        /// <summary>
+        /// AUTO-START: with no setup at all, just press Play. Unity calls this after the
+        /// first scene loads and spawns the bootstrap for you. If you've already placed a
+        /// RaidBootstrap in the scene manually, this does nothing (avoids a duplicate).
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void AutoStart()
+        {
+            if (FindFirstObjectByType<RaidBootstrap>() != null) return;
+            var go = new GameObject("RaidBootstrap (auto)");
+            go.AddComponent<RaidBootstrap>();
+        }
+
         private Sprite _sprite;
         private InputActionAsset _inputAsset;
         private RaidManager _raid;
