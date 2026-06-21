@@ -20,6 +20,15 @@ const repo = require('./repo');
 // Default model — strong for code, far lower premium cost than opus.
 const CHAT_MODEL = process.env.CHAT_MODEL || 'claude-sonnet-4.6';
 
+// Which chat sessions we've already sent the kid-grounding preamble to. The
+// Copilot CLI resumes a session by its UUID (--session-id) and remembers the
+// whole conversation itself, so we only inject the big system preamble on a
+// session's FIRST turn; every later turn passes Warren's raw message and lets
+// the CLI's own memory carry the context. Bounded so a long-lived server
+// process can't leak; re-priming an old session is harmless (just redundant).
+const primedSessions = new Set();
+const PRIMED_CAP = 1000;
+
 // Resolve the Copilot CLI's real JS entrypoint (npm-loader.js) ONCE at startup.
 // We spawn `node <npm-loader.js> ...args` with shell:false so the OS hands each
 // arg to argv verbatim — the multi-line prompt stays a single quoted argument.
@@ -87,13 +96,23 @@ function buildPrompt(userMessage) {
 // Spawn the CLI for one message. Calls handlers.onDelta(text) as tokens stream,
 // handlers.onDone({text, usage, model}) on success, handlers.onError(err) on
 // failure. Returns { cancel() } to kill the child if the client disconnects.
-function streamChat(userMessage, handlers) {
+function streamChat(userMessage, handlers, sessionId) {
   const onDelta = (handlers && handlers.onDelta) || (() => {});
   const onDone = (handlers && handlers.onDone) || (() => {});
   const onError = (handlers && handlers.onError) || (() => {});
 
+  // First turn of a session → send the full grounding preamble. Later turns →
+  // send Warren's raw message and let the CLI's own session memory carry the
+  // context (it already knows the rules + earlier conversation).
+  const isFirstTurn = !sessionId || !primedSessions.has(sessionId);
+  if (sessionId) {
+    if (primedSessions.size >= PRIMED_CAP) primedSessions.clear();
+    primedSessions.add(sessionId);
+  }
+  const promptText = isFirstTurn ? buildPrompt(userMessage) : userMessage;
+
   const args = [
-    '-p', buildPrompt(userMessage),
+    '-p', promptText,
     '--model', CHAT_MODEL,
     '--silent',
     '--no-color',
@@ -102,6 +121,7 @@ function streamChat(userMessage, handlers) {
     '--deny-tool', 'write',
     '--deny-tool', 'shell',
     '--mode', 'plan',
+    ...(sessionId ? ['--session-id', sessionId] : []),
     '--no-custom-instructions',
     '--disable-builtin-mcps',
     ...MCP_DISABLE_FLAGS,

@@ -7,6 +7,34 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
 
+  // One chat session id for the whole conversation, so Copilot remembers what
+  // we already talked about (multi-turn memory). "New chat" rotates this.
+  let chatSessionId = newSessionId();
+
+  function newSessionId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+    // Fallback for older browsers / non-secure contexts.
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  // The friendly welcome bubble shown on a fresh chat (mirrors studio.html).
+  const WELCOME_HTML =
+    '<div class="chat-bubble bot">' +
+    '<p>Hey Warren! 👋 Ask me stuff like:</p>' +
+    '<ul class="chat-ideas">' +
+    '<li>"How do the goblins decide where to go? 🧠"</li>' +
+    '<li>"How would I make enemies turn red when they chase me? 🔴"</li>' +
+    '<li>"Explain the EnemyAI script to me 📜"</li>' +
+    '</ul>' +
+    '<p>I can read your game code and the spec, then explain it and suggest changes. ⚔️</p>' +
+    '</div>';
+
   // ---- Tiny fetch helper that handles the auth gate ----------------------
   async function api(path, opts) {
     const res = await fetch(path, Object.assign({ credentials: 'same-origin' }, opts));
@@ -373,7 +401,7 @@
       const res = await api('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, sessionId: chatSessionId }),
       });
 
       // Non-streaming error (e.g. 400/429) comes back as JSON, not SSE.
@@ -444,6 +472,17 @@
     }
   }
 
+  function startNewChat() {
+    chatSessionId = newSessionId();
+    const body = $('#chatBody');
+    if (body) body.innerHTML = WELCOME_HTML;
+    const input = $('#chatInput');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+  }
+
   function wireChat() {
     const form = $('#chatForm');
     const input = $('#chatInput');
@@ -456,6 +495,14 @@
       input.value = '';
       sendChat(message);
     });
+
+    const newBtn = $('#newChat');
+    if (newBtn) {
+      newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        startNewChat();
+      });
+    }
   }
 
   // ---- Boot --------------------------------------------------------------

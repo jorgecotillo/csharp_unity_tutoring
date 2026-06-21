@@ -6,6 +6,7 @@
 require('dotenv').config();
 
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -23,6 +24,11 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 // Idle timeout for a logged-in session (minutes).
 const SESSION_IDLE_MIN = parseInt(process.env.SESSION_IDLE_MIN || '120', 10);
 const SESSION_IDLE_MS = SESSION_IDLE_MIN * 60 * 1000;
+
+// Shape of a client-supplied chat session id (a v4-ish UUID). The browser owns
+// the id so the Copilot CLI can resume the same conversation across messages;
+// anything that doesn't match gets replaced with a fresh server-minted UUID.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Behind Azure Container Apps / App Service we sit behind a TLS-terminating proxy.
 app.set('trust proxy', 1);
@@ -171,6 +177,11 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
   const username = req.session.username;
   const message = (req.body && typeof req.body.message === 'string') ? req.body.message.trim() : '';
 
+  // Client owns the chat session id so the CLI can keep conversation context
+  // across turns. Validate it hard; fall back to a fresh UUID if missing/bogus.
+  let sessionId = (req.body && typeof req.body.sessionId === 'string') ? req.body.sessionId.trim() : '';
+  if (!UUID_RE.test(sessionId)) sessionId = crypto.randomUUID();
+
   if (!message) {
     return res.status(400).json({ error: 'Type a message first! ✍️' });
   }
@@ -226,7 +237,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
       send('error', { error: "Hmm, my forge sputtered. 🔧 Give it another try in a sec!" });
       res.end();
     },
-  });
+  }, sessionId);
 
   // If Warren genuinely closes the tab / navigates away mid-answer, kill the CLI
   // child. We listen on the RESPONSE (not the request): req's 'close' fires as

@@ -489,6 +489,16 @@ body {
   white-space: nowrap;
 }
 
+/* In the chat pane head, push the pill + New-chat button to the right. */
+.pane-right .pane-head #chatModel {
+  margin-left: auto;
+}
+
+.pane-right .pane-head #newChat {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 .chat-body {
   flex: 1;
   overflow: auto;
