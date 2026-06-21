@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>⚔️ Warren's Game Studio — Login</title>
+    <link rel="stylesheet" href="/css/studio.css" />
+  </head>
+  <body class="login-body">
+    <main class="login-card">
+      <div class="login-crest">⚔️</div>
+      <h1>Warren's Game Studio</h1>
+      <p class="login-tag">Enter the keep to forge your game.</p>
+
+      <form id="loginForm" autocomplete="off">
+        <label>
+          <span>Hero name</span>
+          <input id="username" name="username" type="text" placeholder="warren" required autofocus />
+        </label>
+        <label>
+          <span>Secret password</span>
+          <input id="password" name="password" type="password" placeholder="••••••••" required />
+        </label>
+        <button type="submit" id="loginBtn">🛡️ Enter the Studio</button>
+        <p class="login-error" id="loginError" hidden></p>
+      </form>
+
+      <p class="login-foot">Goblin Siege · scoped to your game repo only</p>
+    </main>
+    <script src="/js/login.js"></script>
+  </body>
+</html>
