@@ -52,6 +52,7 @@
           <span class="pane-title">🎮 Game Preview</span>
           <div class="preview-controls">
             <span id="buildStatus" class="build-status">Checking build…</span>
+            <button id="fullscreenGame" class="ghost-btn" title="Play full screen — best for keyboard">⛶ Play Big</button>
             <button id="reloadGame" class="primary-btn">⟳ Reload</button>
           </div>
         </div>
@@ -65,9 +66,11 @@
             class="game-frame"
             title="Goblin Siege preview"
             src="/game/index.html"
+            tabindex="0"
             allow="autoplay; fullscreen; gamepad"
           ></iframe>
         </div>
+        <p class="game-hint">🎮 Click the game first, then move with <b>WASD</b> / arrow keys. Tap <b>⛶ Play Big</b> for full screen.</p>
       </section>
 
       <!-- RIGHT: Copilot chat -->

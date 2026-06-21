@@ -13,7 +13,7 @@ const REPO_ROOT = process.env.REPO_ROOT
 const CODE_ROOT_REL = 'mvp_v1/Assets/Scripts';
 
 // The spec file Warren reads (and, later, edits).
-const SPEC_FILE_REL = 'FINAL_PROJECT_REVISED.md';
+const SPEC_FILE_REL = 'competition/warren_game_design_v2.md';
 
 // The already-built WebGL bundle the preview iframe loads.
 const WEBGL_DIR = path.join(REPO_ROOT, 'mvp_v1', 'Builds', 'WebGL');

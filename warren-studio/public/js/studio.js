@@ -250,14 +250,48 @@
   }
 
   function wireReload() {
+    const frame = $('#gameFrame');
+
     $('#reloadGame').addEventListener('click', () => {
-      const frame = $('#gameFrame');
       if (lastAvailable) {
         frame.src = '/game/index.html?t=' + Date.now();
       } else {
         refreshGameStatus();
       }
     });
+
+    // "Play Big" — fullscreen the game so keyboard input is captured cleanly.
+    const fsBtn = $('#fullscreenGame');
+    if (fsBtn) {
+      fsBtn.addEventListener('click', () => {
+        if (frame.requestFullscreen) {
+          frame.requestFullscreen().then(focusGame).catch(() => openGameTab());
+        } else {
+          openGameTab();
+        }
+      });
+    }
+
+    // Unity WebGL only receives key presses when its canvas/iframe has focus.
+    // Clicking the game (or it finishing load) hands focus to it so WASD/arrows
+    // work inline. We intentionally do NOT grab focus on hover, so the mouse
+    // drifting over the game can't interrupt typing in the chat box.
+    frame.addEventListener('load', focusGame);
+    frame.addEventListener('pointerdown', focusGame);
+  }
+
+  function focusGame() {
+    const frame = $('#gameFrame');
+    try {
+      frame.focus();
+      if (frame.contentWindow) frame.contentWindow.focus();
+    } catch (_) {
+      /* cross-origin guard — same-origin here, so this normally succeeds */
+    }
+  }
+
+  function openGameTab() {
+    window.open('/game/index.html', '_blank', 'noopener');
   }
 
   // ---- Helpers -----------------------------------------------------------
