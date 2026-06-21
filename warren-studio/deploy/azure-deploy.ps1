@@ -18,9 +18,9 @@
 
 .EXAMPLE
   ./azure-deploy.ps1 `
-     -GitHubAppId 123456 `
-     -GitHubAppInstallationId 654321 `
-     -StudioUsersJsonPath ../studio-users.json
+     -GitHubOAuthClientId Iv1.abc123 `
+     -GitHubOAuthClientSecret <secret> `
+     -GitHubOAuthAllowedUsers "jorgecotillo,warrens-login"
 
 .NOTES
   Requires: az CLI (>= 2.50), logged in as the Gmail/personal account (`az login` — that
@@ -43,13 +43,23 @@ param(
     # --- Container image (public GHCR, no registry creds needed) ---
     [string] $Image         = "ghcr.io/jorgecotillo/warren-studio:latest",
 
-    # --- GitHub App (PAT-free write credential). Blank = push stays disabled until set. ---
+    # --- GitHub OAuth login (PRIMARY front door + per-user push identity). ---
+    # Register a classic OAuth App at https://github.com/settings/developers and pass the
+    # client id + secret here. ALLOWED users is a comma list of GitHub logins (e.g. you +
+    # Warren). Empty client id/secret = the GitHub sign-in button is hidden and the studio
+    # falls back to the dev password gate below.
+    [string] $GitHubOAuthClientId     = "",
+    [string] $GitHubOAuthClientSecret = "",
+    [string] $GitHubOAuthAllowedUsers = "",             # e.g. "jorgecotillo,warrens-login"
+    [string] $GitHubOAuthCallbackUrl  = "",             # optional; auto-derived from $AppName if blank
+
+    # --- GitHub App (LEGACY optional push fallback when no OAuth pusher is present). ---
     [string] $GitHubAppId             = "",
     [string] $GitHubAppInstallationId = "",
     # The .pem is uploaded to /home/secrets/ via Kudu (DEPLOY.md step E); we only point at it.
     [string] $GitHubAppPrivateKeyPath = "/home/secrets/warren-studio.pem",
 
-    # --- Password gate. Provide EITHER a users JSON file OR a dev password. ---
+    # --- Password gate (DEV / FALLBACK only — used when OAuth above is not configured). ---
     [string] $StudioUsersJsonPath = "",                 # path to a JSON array of {username,passwordHash}
     [string] $DevPassword         = "",                 # quick-start single shared password (less secure)
 
@@ -202,6 +212,16 @@ $settings = [ordered]@{
     "GIT_AUTHOR_EMAIL"      = "warren-studio-bot@users.noreply.github.com"
 }
 
+# GitHub OAuth login (PRIMARY front door). Only set when client id+secret provided.
+if ($GitHubOAuthClientId -and $GitHubOAuthClientSecret) {
+    $settings["GITHUB_OAUTH_CLIENT_ID"]     = $GitHubOAuthClientId
+    $settings["GITHUB_OAUTH_CLIENT_SECRET"] = $GitHubOAuthClientSecret
+    if ($GitHubOAuthAllowedUsers) { $settings["GITHUB_OAUTH_ALLOWED_USERS"] = $GitHubOAuthAllowedUsers }
+    # Pin the callback so it exactly matches what you register in the OAuth App.
+    $cb = if ($GitHubOAuthCallbackUrl) { $GitHubOAuthCallbackUrl } else { "https://$AppName.azurewebsites.net/auth/github/callback" }
+    $settings["GITHUB_OAUTH_CALLBACK_URL"] = $cb
+}
+
 # GitHub App (only set when provided)
 if ($GitHubAppId)             { $settings["GITHUB_APP_ID"] = $GitHubAppId }
 if ($GitHubAppInstallationId) { $settings["GITHUB_APP_INSTALLATION_ID"] = $GitHubAppInstallationId }
@@ -242,8 +262,14 @@ Write-Host "    Studio URL : https://$appHost"             -ForegroundColor Gree
 Write-Host "    Health     : https://$appHost/healthz"     -ForegroundColor Green
 Write-Host "    Kudu (SCM) : https://$AppName.scm.azurewebsites.net" -ForegroundColor Green
 Write-Host ""
-Warn "Two one-time manual steps remain (see DEPLOY.md):"
-Write-Host "    E) Upload the GitHub App private key to /home/secrets/warren-studio.pem (Kudu)."
+Warn "One-time manual steps remain (see DEPLOY.md):"
+Write-Host "    A) Register a GitHub OAuth App (https://github.com/settings/developers):"
+Write-Host "         Homepage URL            = https://$appHost"
+Write-Host "         Authorization callback  = https://$appHost/auth/github/callback"
+Write-Host "       then re-run this script with -GitHubOAuthClientId/-GitHubOAuthClientSecret"
+Write-Host "       and -GitHubOAuthAllowedUsers ""<your-login>,<warrens-login>""."
+Write-Host "    B) Add Warren as a Write collaborator on $RepoSlug (so his pushes land)."
+Write-Host "    E) Upload the GitHub App private key to /home/secrets/warren-studio.pem (Kudu) — LEGACY/optional."
 Write-Host "    F) Transplant your authenticated ~/.copilot into /home/.copilot (Kudu), so the"
 Write-Host "       AI brain runs as you with no interactive login on the server."
 Write-Host ""

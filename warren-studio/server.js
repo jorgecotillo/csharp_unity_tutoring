@@ -18,6 +18,8 @@ const repo = require('./lib/repo');
 const chat = require('./lib/chat');
 const git = require('./lib/git');
 const pull = require('./lib/pull');
+const oauth = require('./lib/oauth');
+const tokens = require('./lib/tokens');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -100,6 +102,7 @@ app.post('/api/login', async (req, res) => {
     const user = await auth.verify(username, password);
     if (!user) return res.status(401).json({ error: 'Wrong username or password.' });
     req.session.username = user.username;
+    req.session.via = 'password';
     req.session.lastSeen = Date.now();
     return res.json({ ok: true, username: user.username });
   } catch (err) {
@@ -108,7 +111,64 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// What login methods are available (drives the login page UI).
+app.get('/api/auth/config', (req, res) => {
+  res.json({ github: oauth.isConfigured(), password: auth.userCount() > 0 });
+});
+
+// ---- GitHub OAuth login (interactive) -----------------------------------
+// "Sign in with GitHub" — this IS the auth gate AND the push credential.
+
+app.get('/auth/github/login', (req, res) => {
+  if (!oauth.isConfigured()) return res.redirect('/login?e=oauth_off');
+  const state = oauth.newState();
+  const redirectUri = oauth.callbackUrl(req);
+  req.session.oauthState = state;
+  req.session.oauthRedirect = redirectUri;
+  res.redirect(oauth.authorizeUrl(state, redirectUri));
+});
+
+app.get('/auth/github/callback', async (req, res) => {
+  try {
+    if (!oauth.isConfigured()) return res.redirect('/login?e=oauth_off');
+    const { code, state } = req.query || {};
+    const wantState = req.session && req.session.oauthState;
+    const redirectUri = (req.session && req.session.oauthRedirect) || oauth.callbackUrl(req);
+    // One-time use: clear the CSRF state regardless of outcome.
+    if (req.session) {
+      req.session.oauthState = null;
+      req.session.oauthRedirect = null;
+    }
+    if (!code || !state || !wantState || state !== wantState) {
+      return res.redirect('/login?e=state');
+    }
+    const token = await oauth.exchangeCode(String(code), redirectUri);
+    if (!token) return res.redirect('/login?e=failed');
+    const user = await oauth.fetchUser(token);
+    if (!user || !user.login) return res.redirect('/login?e=failed');
+    if (!oauth.isAllowed(user.login)) return res.redirect('/login?e=denied');
+
+    const sid = crypto.randomUUID();
+    tokens.put(sid, {
+      token,
+      login: user.login,
+      name: user.name || user.login,
+      email: user.email,
+    });
+    req.session.username = user.login;
+    req.session.name = user.name || user.login;
+    req.session.sid = sid;
+    req.session.via = 'github';
+    req.session.lastSeen = Date.now();
+    return res.redirect('/');
+  } catch (err) {
+    console.error('[oauth] callback error', err);
+    return res.redirect('/login?e=failed');
+  }
+});
+
 app.post('/api/logout', (req, res) => {
+  if (req.session && req.session.sid) tokens.del(req.session.sid);
   req.session = null;
   res.json({ ok: true });
 });
@@ -116,7 +176,11 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/me', (req, res) => {
   if (!isLoggedIn(req)) return res.status(401).json({ error: 'Not logged in.' });
   touch(req);
-  res.json({ username: req.session.username });
+  res.json({
+    username: req.session.username,
+    name: req.session.name || req.session.username,
+    via: req.session.via || 'password',
+  });
 });
 
 // ---- Protected API -------------------------------------------------------
@@ -177,6 +241,11 @@ function rateLimit(username) {
 
 app.post('/api/chat', requireApiAuth, (req, res) => {
   const username = req.session.username;
+  // Capture the push identity NOW (synchronously) — the token store lookup must
+  // happen before the async onDone closure runs. For GitHub-login users this is
+  // their own OAuth token so commits & pushes are attributed to them. For the
+  // dev password path there's no sid, so pusher is null and git.js falls back.
+  const pusher = (req.session && req.session.sid) ? tokens.get(req.session.sid) : null;
   const message = (req.body && typeof req.body.message === 'string') ? req.body.message.trim() : '';
 
   // Client owns the chat session id so the CLI can keep conversation context
@@ -233,7 +302,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
       // token + pushes under the in-process lock), so we await it.
       let gameEdit = null;
       try {
-        gameEdit = await git.commitGameEdits(message);
+        gameEdit = await git.commitGameEdits(message, pusher);
       } catch (e) {
         console.error('[git] commit failed', e && e.message ? e.message : e);
         gameEdit = { changed: false, error: true };
