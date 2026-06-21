@@ -247,6 +247,7 @@
 
   // ---- Game preview ------------------------------------------------------
   let lastAvailable = null;
+  let lastBuiltAt = null;
 
   async function refreshGameStatus() {
     const statusEl = $('#buildStatus');
@@ -259,16 +260,20 @@
         statusEl.title = data.builtAt || '';
         missingEl.hidden = true;
         frame.style.display = '';
-        if (lastAvailable === false) {
-          // A build just appeared — load it.
+        // Reload the iframe when a build first appears OR when a fresh build
+        // (new builtAt) lands after a rebuild — so Warren sees his change.
+        const builtChanged = data.builtAt && data.builtAt !== lastBuiltAt;
+        if (lastAvailable === false || (lastAvailable && builtChanged)) {
           frame.src = '/game/index.html?t=' + Date.now();
         }
+        lastBuiltAt = data.builtAt || lastBuiltAt;
       } else {
         statusEl.textContent = '🛠️ No build yet';
         statusEl.title = '';
         missingEl.hidden = false;
         frame.style.display = 'none';
         frame.src = 'about:blank';
+        lastBuiltAt = null;
       }
       lastAvailable = !!data.available;
     } catch (err) {

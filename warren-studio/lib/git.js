@@ -17,6 +17,8 @@
 
 const { execFileSync } = require('child_process');
 const repo = require('./repo');
+const githubApp = require('./githubApp');
+const gitlock = require('./gitlock');
 
 const TARGET_BRANCH = process.env.GIT_TARGET_BRANCH || 'main';
 const REMOTE = process.env.GIT_REMOTE || 'origin';
@@ -49,6 +51,52 @@ function gitCode(args) {
   }
 }
 
+// Derive the "owner/repo" slug for building an authenticated push URL. Prefer
+// the explicit GIT_REPO_SLUG env, else parse `git remote get-url origin`.
+let _slugCache;
+function repoSlug() {
+  if (_slugCache !== undefined) return _slugCache;
+  const fromEnv = String(process.env.GIT_REPO_SLUG || '').trim();
+  if (fromEnv) {
+    _slugCache = fromEnv.replace(/\.git$/i, '');
+    return _slugCache;
+  }
+  let url = '';
+  try {
+    url = git(['remote', 'get-url', REMOTE]).trim();
+  } catch (_) {
+    _slugCache = null;
+    return _slugCache;
+  }
+  const m = url.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/i);
+  _slugCache = m ? m[1] : null;
+  return _slugCache;
+}
+
+// Resolve the push target. When a GitHub App is configured we mint a short-lived
+// installation token and push to an https URL with that token embedded so the
+// container needs NO stored PAT. Otherwise fall back to the named remote (works
+// for local dev where the user's own git credentials are present).
+async function pushTarget() {
+  if (githubApp.isConfigured()) {
+    const slug = repoSlug();
+    if (slug) {
+      const token = await githubApp.getInstallationToken();
+      return `https://x-access-token:${token}@github.com/${slug}.git`;
+    }
+  }
+  return REMOTE;
+}
+
+// Strip any embedded credential (x-access-token:<token>@) out of a string so a
+// short-lived GitHub App token can never leak into an error surfaced to the UI.
+function redact(s) {
+  return String(s == null ? '' : s).replace(
+    /x-access-token:[^@\s]+@/gi,
+    'x-access-token:***@'
+  );
+}
+
 // Which allow-listed game files changed on disk (for a friendly UI message).
 function changedGameFiles() {
   let out = '';
@@ -68,65 +116,84 @@ function changedGameFiles() {
  * GIT_PUSH_ENABLED) push to the target branch, rebasing once on conflict.
  *
  * @param {string} message  Warren's request — used as the commit subject.
- * @returns {{changed:boolean, files:string[], sha?:string, pushed?:boolean,
- *           rebased?:boolean, conflict?:boolean, pushError?:string,
- *           pushNote?:string}}
+ * @returns {Promise<{changed:boolean, files:string[], sha?:string,
+ *           pushed?:boolean, rebased?:boolean, conflict?:boolean,
+ *           pushError?:string, pushNote?:string}>}
  */
-function commitGameEdits(message) {
+async function commitGameEdits(message) {
   const files = changedGameFiles();
   if (files.length === 0) {
     return { changed: false, files: [] };
   }
 
-  // Stage ONLY the allow-listed game paths. Anything the agent touched outside
-  // this list stays unstaged and is never committed.
-  git(['add', '--', ...COMMIT_PATHSPECS]);
-
-  // Edits that net to no change leave nothing staged → nothing to commit.
-  if (gitCode(['diff', '--cached', '--quiet']) === 0) {
-    return { changed: false, files: [] };
-  }
-
-  const subject =
-    (message && String(message).replace(/\s+/g, ' ').trim().slice(0, 72)) ||
-    'Warren game update';
-  const commitMsg = `${subject}\n\nMade in Warren's Game Studio.\n\n${COAUTHOR}\n`;
-  git(['commit', '-m', commitMsg]);
-
-  let sha = '';
+  // Hold the git lock across the whole commit+push so the background puller
+  // can't ff-merge origin/main into the working tree mid-operation.
+  gitlock.set(true);
   try {
-    sha = git(['rev-parse', '--short', 'HEAD']).trim();
-  } catch (_) {
-    /* sha is best-effort */
-  }
+    // Stage ONLY the allow-listed game paths. Anything the agent touched
+    // outside this list stays unstaged and is never committed.
+    git(['add', '--', ...COMMIT_PATHSPECS]);
 
-  const result = { changed: true, files, sha, pushed: false };
-
-  if (!PUSH_ENABLED) {
-    result.pushNote = 'local-only (push disabled)';
-    return result;
-  }
-
-  // Push to the target branch; on a non-fast-forward, rebase on the remote once
-  // and retry — this is the "fix any merge conflicts" path the user asked for.
-  try {
-    git(['push', REMOTE, `HEAD:${TARGET_BRANCH}`]);
-    result.pushed = true;
-  } catch (_firstErr) {
-    try {
-      git(['pull', '--rebase', REMOTE, TARGET_BRANCH]);
-      git(['push', REMOTE, `HEAD:${TARGET_BRANCH}`]);
-      result.pushed = true;
-      result.rebased = true;
-    } catch (secondErr) {
-      result.pushed = false;
-      result.conflict = true;
-      result.pushError = (
-        (secondErr && secondErr.message) ? secondErr.message : String(secondErr)
-      ).slice(0, 300);
+    // Edits that net to no change leave nothing staged → nothing to commit.
+    if (gitCode(['diff', '--cached', '--quiet']) === 0) {
+      return { changed: false, files: [] };
     }
+
+    const subject =
+      (message && String(message).replace(/\s+/g, ' ').trim().slice(0, 72)) ||
+      'Warren game update';
+    const commitMsg = `${subject}\n\nMade in Warren's Game Studio.\n\n${COAUTHOR}\n`;
+    git(['commit', '-m', commitMsg]);
+
+    let sha = '';
+    try {
+      sha = git(['rev-parse', '--short', 'HEAD']).trim();
+    } catch (_) {
+      /* sha is best-effort */
+    }
+
+    const result = { changed: true, files, sha, pushed: false };
+
+    if (!PUSH_ENABLED) {
+      result.pushNote = 'local-only (push disabled)';
+      return result;
+    }
+
+    // Resolve the push target (authenticated GitHub App URL or named remote).
+    let target;
+    try {
+      target = await pushTarget();
+    } catch (tokenErr) {
+      result.pushed = false;
+      result.pushError = redact(
+        (tokenErr && tokenErr.message) ? tokenErr.message : String(tokenErr)
+      ).slice(0, 300);
+      return result;
+    }
+
+    // Push to the target branch; on a non-fast-forward, rebase on the remote
+    // once and retry — the "fix any merge conflicts" path the user asked for.
+    try {
+      git(['push', target, `HEAD:${TARGET_BRANCH}`]);
+      result.pushed = true;
+    } catch (_firstErr) {
+      try {
+        git(['pull', '--rebase', REMOTE, TARGET_BRANCH]);
+        git(['push', target, `HEAD:${TARGET_BRANCH}`]);
+        result.pushed = true;
+        result.rebased = true;
+      } catch (secondErr) {
+        result.pushed = false;
+        result.conflict = true;
+        result.pushError = redact(
+          (secondErr && secondErr.message) ? secondErr.message : String(secondErr)
+        ).slice(0, 300);
+      }
+    }
+    return result;
+  } finally {
+    gitlock.set(false);
   }
-  return result;
 }
 
 module.exports = { commitGameEdits, TARGET_BRANCH, REMOTE, PUSH_ENABLED };

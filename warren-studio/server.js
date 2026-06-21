@@ -17,6 +17,7 @@ const auth = require('./lib/auth');
 const repo = require('./lib/repo');
 const chat = require('./lib/chat');
 const git = require('./lib/git');
+const pull = require('./lib/pull');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -221,17 +222,18 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
     onDelta(text) {
       send('delta', { text });
     },
-    onDone({ text, usage, model }) {
+    async onDone({ text, usage, model }) {
       finished = true;
       const html = text ? marked.parse(text) : '';
 
       // The agent may have edited the game's files. Commit those (allow-listed
       // to mvp_v1/** + the spec) so Warren's change is saved and — when push is
       // enabled — lands on main. A git hiccup must never break the chat reply,
-      // so this is fully wrapped.
+      // so this is fully wrapped. commitGameEdits is async (mints a GitHub App
+      // token + pushes under the in-process lock), so we await it.
       let gameEdit = null;
       try {
-        gameEdit = git.commitGameEdits(message);
+        gameEdit = await git.commitGameEdits(message);
       } catch (e) {
         console.error('[git] commit failed', e && e.message ? e.message : e);
         gameEdit = { changed: false, error: true };
@@ -310,4 +312,9 @@ app.listen(PORT, () => {
   if (auth.userCount() === 0) {
     console.warn('[warn] No users configured — nobody can log in. Set STUDIO_DEV_PASSWORD for local dev.');
   }
+
+  // Start the background poller that fast-forwards the local checkout to
+  // origin/main, pulling down CI-built WebGL files so the preview refreshes.
+  // No-op unless GIT_PULL_ENABLED is set (Azure on; local dev off).
+  pull.startGamePuller();
 });
