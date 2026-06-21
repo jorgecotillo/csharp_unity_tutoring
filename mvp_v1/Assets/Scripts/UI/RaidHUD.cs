@@ -108,6 +108,11 @@ namespace GoblinSiege.UI
         {
             if (resultPanel != null) resultPanel.SetActive(true);
 
+            // ───────────────────────────────────────────────────────────────
+            // CHANGE (T5): Added LostWarlordDown arm for Warlord death defeat.
+            // The Warlord falling triggers an immediate defeat — a leaderless
+            // warband scatters. This outcome bypasses quota and alarm checks.
+            // ───────────────────────────────────────────────────────────────
             (string title, string reason) = result switch
             {
                 RaidResult.Won => ("VICTORY",
@@ -116,6 +121,8 @@ namespace GoblinSiege.UI
                     "The warband is broken."),
                 RaidResult.LostAlarmMaxed => ("DEFEAT",
                     "You reached for one more chest. The horns never stopped."),
+                RaidResult.LostWarlordDown => ("DEFEAT",
+                    "The warlord fell. A leaderless warband scatters."),
                 _ => ("RAID OVER", "")
             };
 

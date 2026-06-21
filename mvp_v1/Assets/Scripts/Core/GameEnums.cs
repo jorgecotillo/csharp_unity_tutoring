@@ -49,6 +49,7 @@ namespace GoblinSiege.Core
         InProgress,
         Won,             // quota banked at extraction
         LostSquadWipe,   // all squads destroyed
-        LostAlarmMaxed   // Full Sally reached before quota banked
+        LostAlarmMaxed,  // Full Sally reached before quota banked
+        LostWarlordDown  // NEW (T5): the Warlord proxy was killed — leaderless defeat
     }
 }

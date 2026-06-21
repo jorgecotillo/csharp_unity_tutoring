@@ -21,6 +21,17 @@ namespace GoblinSiege.Units
 
         public static void Clear() => Units.Clear();
 
+        // ═══════════════════════════════════════════════════════════════════
+        // FindNearestEnemy — INTENTIONALLY UNCHANGED (T5)
+        // ═══════════════════════════════════════════════════════════════════
+        // This method finds the nearest unit on the OPPOSING team. Humans use
+        // it to acquire targets. The Warlord is on Team.Goblin, so humans
+        // WILL find and target the Warlord via this method. That's correct!
+        // The Warlord being a valid combat target is the whole point of T5.
+        //
+        // DO NOT add INonObjectiveRaider filtering here — that would make
+        // humans ignore the Warlord, defeating the purpose of T5.
+        // ═══════════════════════════════════════════════════════════════════
         /// <summary>Nearest living unit on the opposing team, or null.</summary>
         public static Unit FindNearestEnemy(Unit self)
         {
@@ -42,14 +53,66 @@ namespace GoblinSiege.Units
             return best;
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // CountAlive — UPDATED (T5) to skip non-objective raiders
+        // ═══════════════════════════════════════════════════════════════════
+        // Currently unused, but defensive: if anyone counts Team.Goblin
+        // alive units, the Warlord must NOT inflate that count. The Warlord
+        // is a command proxy, not a combat unit that counts toward objectives.
+        //
+        // We check for INonObjectiveRaider (marker interface) because the
+        // underlying CountsAsRaiderObjective property on Unit is `protected`
+        // and inaccessible from this static class. The marker interface
+        // provides a public, type-safe way to identify non-objective units
+        // without editing Unit.cs.
+        // ═══════════════════════════════════════════════════════════════════
         public static int CountAlive(Team team)
         {
             int n = 0;
             for (int i = 0; i < Units.Count; i++)
-                if (Units[i] != null && Units[i].IsAlive && Units[i].Team == team) n++;
+            {
+                Unit u = Units[i];
+                if (u == null || !u.IsAlive || u.Team != team) continue;
+
+                // ───────────────────────────────────────────────────────────
+                // CHANGE (T5): Skip non-objective raiders when counting goblins.
+                // The Warlord is Team.Goblin but implements INonObjectiveRaider,
+                // so it won't inflate goblin counts used for objective checks.
+                // ───────────────────────────────────────────────────────────
+                if (team == Team.Goblin && u is INonObjectiveRaider) continue;
+
+                n++;
+            }
             return n;
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // FindNearestGoblin — UPDATED (T5) to skip non-objective raiders
+        // ═══════════════════════════════════════════════════════════════════
+        // This method is used by:
+        //   - LootCache.HasGoblinInRange: detects nearby goblins for looting
+        //   - ExtractionZone.AnyGoblinInside: checks if a goblin reached the
+        //     extraction point to trigger the win condition
+        //
+        // CRITICAL BUG PREVENTION:
+        // The Warlord is on Team.Goblin so humans target it (correct). But if
+        // this method returned the Warlord, then:
+        //   - LootCache would think the Warlord can loot (wrong — it can't)
+        //   - ExtractionZone would trigger a win if the Warlord stands in it
+        //     with quota met (wrong — only real goblin squads should win)
+        //
+        // SOLUTION: Skip units that implement INonObjectiveRaider. The
+        // WarlordUnit class implements this marker interface, so it's
+        // excluded from loot/extraction/win queries while still being
+        // targetable by humans via FindNearestEnemy.
+        //
+        // WHY NOT CHECK CountsAsRaiderObjective DIRECTLY?
+        // That property is `protected` on Unit (line 59 of Unit.cs). We
+        // cannot access it from this static class, and we cannot edit
+        // Unit.cs (owned by another development lane). The marker interface
+        // INonObjectiveRaider provides the same semantic in a public,
+        // compile-legal way.
+        // ═══════════════════════════════════════════════════════════════════
         /// <summary>Nearest living goblin to a world position, or null.</summary>
         public static Unit FindNearestGoblin(Vector2 from)
         {
@@ -59,6 +122,15 @@ namespace GoblinSiege.Units
             {
                 Unit u = Units[i];
                 if (u == null || !u.IsAlive || u.Team != Team.Goblin) continue;
+
+                // ───────────────────────────────────────────────────────────
+                // CHANGE (T5): Skip non-objective raiders (e.g., Warlord).
+                // The Warlord is on Team.Goblin so humans target it, but it
+                // must NOT count as a looter/extractor — skipping it here is
+                // what prevents win-by-standing-in-the-extraction-zone.
+                // ───────────────────────────────────────────────────────────
+                if (u is INonObjectiveRaider) continue;
+
                 float sqr = ((Vector2)u.transform.position - from).sqrMagnitude;
                 if (sqr < bestSqr)
                 {

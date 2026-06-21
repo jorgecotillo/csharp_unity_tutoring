@@ -258,6 +258,28 @@ namespace GoblinSiege.Systems
                 EndRaid(RaidResult.LostAlarmMaxed);
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // NotifyWarlordDown — NEW (T5): Warlord death = defeat
+        // ═══════════════════════════════════════════════════════════════════
+        // Called by WarlordUnit.Die() when the Warlord proxy's HP reaches zero.
+        // A leaderless warband scatters — instant defeat regardless of quota.
+        //
+        // WHY PUBLIC?
+        // WarlordUnit calls this directly from its Die() override. The coupling
+        // is acceptable: this is a game-critical event, not a generic callback.
+        // Making it public keeps the "Warlord death = defeat" logic explicit
+        // and localized rather than scattered across event subscriptions.
+        //
+        // GUARD: Only acts if the raid is still InProgress. If the raid has
+        // already ended (e.g., Won via extraction), this is a no-op.
+        // ═══════════════════════════════════════════════════════════════════
+        /// <summary>Called when the Warlord proxy dies. Ends the raid as a defeat if still in progress.</summary>
+        public void NotifyWarlordDown()
+        {
+            if (Result != RaidResult.InProgress) return;
+            EndRaid(RaidResult.LostWarlordDown);
+        }
+
         private void EndRaid(RaidResult result)
         {
             Result = result;
