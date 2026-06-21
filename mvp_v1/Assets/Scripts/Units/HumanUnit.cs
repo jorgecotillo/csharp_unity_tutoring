@@ -59,6 +59,35 @@ namespace GoblinSiege.Units
         internal bool ForcedAlert => _forceAlert;
         internal Unit NearestRaider() => CombatRegistry.FindNearestEnemy(this);
 
+        // ─────────────────────────────────────────────────────────────────────
+        // T2: State-Tint Helper
+        // ─────────────────────────────────────────────────────────────────────
+        // WHY WE TINT BY STATE:
+        // Visual clarity is king in an arcade game. Idle defenders blending
+        // into the scenery is FINE — they're passive, not a threat yet. But
+        // the moment a human "wakes up" and enters Alert, the player NEEDS
+        // to see that instantly. A bright-red sprite screams "I'm coming for
+        // you!" while the dull grey-red of Guard says "I'm just standing here."
+        //
+        // This also dovetails with the hit-flash (T3) in the base Unit class:
+        // when a unit takes damage, we flash white for ~0.08s then RESTORE to
+        // _hitFlashBaseColor — which is captured at flash-start. So if a human
+        // is in Alert (bright red) and gets hit, the flash restores to bright
+        // red. If they're in Guard (dull grey-red), the flash restores to dull.
+        // The two systems cooperate without fighting over Sprite.color.
+        //
+        // IMPLEMENTATION:
+        // Nested state classes can access protected members of the enclosing
+        // instance (_h.Sprite), but keeping a small helper centralizes the
+        // null-check and documents intent. Sprite is set by Unit.Awake(), so
+        // it's guaranteed assigned before Init() runs (spawners call Init()
+        // after Instantiate, which fires Awake). Still, we guard for safety.
+        // ─────────────────────────────────────────────────────────────────────
+        internal void SetTint(Color c)
+        {
+            if (Sprite != null) Sprite.color = c;
+        }
+
         // --- States ---
 
         private class GuardState : IState
@@ -66,7 +95,20 @@ namespace GoblinSiege.Units
             private readonly HumanUnit _h;
             public GuardState(HumanUnit h) => _h = h;
 
-            public void Enter() => _h.OrderMoveTo(_h.Post);
+            public void Enter()
+            {
+                // ─────────────────────────────────────────────────────────────
+                // T2: Guard tint = DIM GREY-RED (0.55, 0.28, 0.28).
+                // ─────────────────────────────────────────────────────────────
+                // WHY DIM: Guards standing at their posts are passive threats —
+                // they won't move until provoked. A muted color lets them fade
+                // into the background so the player focuses on active dangers.
+                // The moment they transition to Alert, they brighten (see below).
+                // ─────────────────────────────────────────────────────────────
+                _h.SetTint(new Color(0.55f, 0.28f, 0.28f));
+
+                _h.OrderMoveTo(_h.Post);
+            }
 
             public void Execute()
             {
@@ -85,7 +127,24 @@ namespace GoblinSiege.Units
             private readonly HumanUnit _h;
             public AlertState(HumanUnit h) => _h = h;
 
-            public void Enter() { }
+            public void Enter()
+            {
+                // ─────────────────────────────────────────────────────────────
+                // T2: Alert tint = BRIGHT RED (1.0, 0.2, 0.2).
+                // ─────────────────────────────────────────────────────────────
+                // WHY BRIGHT: The garrison just woke up — this human is now
+                // ACTIVELY HUNTING the player's goblins. A vivid red screams
+                // "DANGER!" and lets the player instantly distinguish charging
+                // defenders from passive guards. Combined with T3's hit-flash
+                // (white on damage), the battle reads clearly even in chaos.
+                //
+                // TEACHING MOMENT: State-based tinting is a classic arcade
+                // trick (Pac-Man ghosts change color when vulnerable). It's
+                // cheap (one color assignment) and enormously effective at
+                // communicating AI state without UI clutter.
+                // ─────────────────────────────────────────────────────────────
+                _h.SetTint(new Color(1.0f, 0.2f, 0.2f));
+            }
 
             public void Execute()
             {
