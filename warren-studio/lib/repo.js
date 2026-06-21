@@ -15,8 +15,15 @@ const CODE_ROOT_REL = 'mvp_v1/Assets/Scripts';
 // The spec file Warren reads (and, later, edits).
 const SPEC_FILE_REL = 'competition/warren_game_design_v2.md';
 
-// The already-built WebGL bundle the preview iframe loads.
-const WEBGL_DIR = path.join(REPO_ROOT, 'mvp_v1', 'Builds', 'WebGL');
+// The already-built WebGL bundle the preview iframe loads, served same-origin at
+// /game. Locally we serve the dev build at mvp_v1/Builds/WebGL (gitignored). In
+// production the GameCI workflow commits the build into docs/game (tracked, so the
+// deployed clone has it) — set GAME_BUILD_DIR=docs/game there. Keeping it
+// same-origin in both cases is what lets Unity capture WASD/arrow keys.
+const GAME_BUILD_DIR_REL = process.env.GAME_BUILD_DIR || 'mvp_v1/Builds/WebGL';
+const WEBGL_DIR = path.isAbsolute(GAME_BUILD_DIR_REL)
+  ? GAME_BUILD_DIR_REL
+  : path.join(REPO_ROOT, GAME_BUILD_DIR_REL);
 
 // Read-only allow-list. A requested path must resolve inside one of these roots
 // (or be one of the explicitly allowed files) or the read is refused.
@@ -136,6 +143,17 @@ function webglExists() {
 }
 
 function webglBuiltAt() {
+  // Prefer the CI-written manifest: after a fresh clone (production), file mtimes
+  // are just the checkout time, not when the game was actually built. The GameCI
+  // workflow stamps the real build time into build-info.json.
+  try {
+    const info = JSON.parse(
+      fs.readFileSync(path.join(WEBGL_DIR, 'build-info.json'), 'utf8')
+    );
+    if (info && info.builtAt) return info.builtAt;
+  } catch {
+    /* no manifest (local dev build) — fall back to the index.html mtime */
+  }
   try {
     return fs.statSync(path.join(WEBGL_DIR, 'index.html')).mtime.toISOString();
   } catch {
