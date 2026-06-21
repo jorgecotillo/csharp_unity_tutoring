@@ -344,6 +344,48 @@
       .replace(/>/g, '&gt;');
   }
 
+  // Build a friendly "what happened to the game" chip from the server's git
+  // result. Returns a DOM node, or null when nothing code-worthy happened.
+  function renderGameEdit(ge) {
+    if (!ge || (!ge.changed && !ge.error)) return null;
+
+    const el = document.createElement('div');
+    el.className = 'game-edit';
+
+    if (ge.error) {
+      el.classList.add('warn');
+      el.textContent = '⚠️ I answered, but couldn’t save the code change. Tell Jorge!';
+      return el;
+    }
+
+    const files = Array.isArray(ge.files) ? ge.files : [];
+    const n = files.length;
+    const fileWord = n === 1 ? 'file' : 'files';
+    const sha = ge.sha ? ' · ' + ge.sha : '';
+
+    if (ge.conflict) {
+      el.classList.add('warn');
+      el.textContent = '⚠️ Updated ' + n + ' ' + fileWord + sha +
+        ' — saved here, but couldn’t sync to main (a merge tangle). Jorge can sort it.';
+    } else if (ge.pushed) {
+      el.classList.add('ok');
+      const how = ge.rebased ? ' (after a quick sync)' : '';
+      el.textContent = '✅ Updated ' + n + ' ' + fileWord + sha + ' · pushed to main' + how +
+        ' — your game is rebuilding! 🔨';
+    } else {
+      el.classList.add('ok');
+      el.textContent = '✅ Updated ' + n + ' ' + fileWord + sha + ' · saved locally';
+    }
+
+    if (n) {
+      const list = document.createElement('div');
+      list.className = 'game-edit-files';
+      list.textContent = files.slice(0, 6).join(', ') + (n > 6 ? ' …' : '');
+      el.appendChild(list);
+    }
+    return el;
+  }
+
   // ---- Copilot chat ------------------------------------------------------
   function scrollChat() {
     const body = $('#chatBody');
@@ -454,6 +496,11 @@
             else bot.innerHTML = "<p>Hmm, I didn't catch that — try asking again! 🤔</p>";
             const pill = $('#chatModel');
             if (pill && parsed.data && parsed.data.model) pill.textContent = parsed.data.model;
+            const ge = parsed.data && parsed.data.gameEdit;
+            if (ge) {
+              const node = renderGameEdit(ge);
+              if (node) bot.appendChild(node);
+            }
             scrollChat();
           } else if (parsed.event === 'error') {
             bot.className = 'chat-bubble bot';

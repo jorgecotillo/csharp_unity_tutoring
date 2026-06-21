@@ -1,7 +1,8 @@
 'use strict';
 
-// Phase 2 brain: drive the headless GitHub Copilot CLI as Jorge, scoped to this
-// one repo, in READ / PROPOSE mode (no writes, no shell). One spawn per message.
+// Phase 3 brain: drive the headless GitHub Copilot CLI as Jorge, scoped to this
+// one repo, in EDIT mode — it can read AND change the game's files on disk. One
+// spawn per message.
 //
 // Two things make this fast and safe:
 //   1. We disable the builtin MCP servers AND every user-level MCP server found
@@ -9,7 +10,11 @@
 //      kusto/ado servers that add ~90s of cold-start to every spawn; in the
 //      deployed container the file won't exist, so the list is empty and this
 //      is automatically correct.
-//   2. --mode plan + --deny-tool write/shell = it can read & propose, never act.
+//   2. --mode interactive + write ALLOWED, but --deny-tool shell KEPT: the agent
+//      edits files only, it can NEVER run git/shell. The studio's own git.js is
+//      the single deterministic gate that commits/pushes those edits, and it
+//      stages an allow-list (mvp_v1/** + the spec) so edits outside the game
+//      can never reach the branch even if the agent strays.
 
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
@@ -84,9 +89,10 @@ function buildPrompt(userMessage) {
     'RULES:',
     '- You may ONLY help with the Goblin Siege Unity game in THIS repository. Politely refuse anything else.',
     `- The design spec is the file "${repo.SPEC_FILE_REL}". The game code lives under "${repo.CODE_ROOT_REL}". Read those files yourself whenever you need them.`,
-    '- You can READ files and EXPLAIN code, and you can PROPOSE changes by showing the exact code. Do NOT edit, write, or run anything yet — proposing is enough.',
+    `- You CAN edit the game's files directly to make Warren's changes happen. ONLY edit files under "${repo.CODE_ROOT_REL}" (and the wider mvp_v1 game folder) or the design spec "${repo.SPEC_FILE_REL}". NEVER edit anything in the "warren-studio" folder or any other part of the repo.`,
+    '- After you finish editing, write ONE short friendly sentence saying what you changed and which file(s) — Warren will see his game rebuild automatically.',
+    '- You cannot run terminal/git commands, and you do not need to — just save your file edits and the studio handles the rest.',
     '- Keep answers short, upbeat, and easy for a middle-schooler. Simple words, a little fun (emojis welcome ⚔️). Avoid scary jargon; explain any term you must use.',
-    '- When you suggest a code change, show a small code block and say which file it goes in.',
     '',
     "Warren's message:",
     userMessage,
@@ -118,9 +124,8 @@ function streamChat(userMessage, handlers, sessionId) {
     '--no-color',
     '--no-ask-user',
     '--allow-all-tools',
-    '--deny-tool', 'write',
     '--deny-tool', 'shell',
-    '--mode', 'plan',
+    '--mode', 'interactive',
     ...(sessionId ? ['--session-id', sessionId] : []),
     '--no-custom-instructions',
     '--disable-builtin-mcps',

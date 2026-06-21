@@ -16,6 +16,7 @@ const { marked } = require('marked');
 const auth = require('./lib/auth');
 const repo = require('./lib/repo');
 const chat = require('./lib/chat');
+const git = require('./lib/git');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -223,11 +224,25 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
     onDone({ text, usage, model }) {
       finished = true;
       const html = text ? marked.parse(text) : '';
+
+      // The agent may have edited the game's files. Commit those (allow-listed
+      // to mvp_v1/** + the spec) so Warren's change is saved and — when push is
+      // enabled — lands on main. A git hiccup must never break the chat reply,
+      // so this is fully wrapped.
+      let gameEdit = null;
+      try {
+        gameEdit = git.commitGameEdits(message);
+      } catch (e) {
+        console.error('[git] commit failed', e && e.message ? e.message : e);
+        gameEdit = { changed: false, error: true };
+      }
+
       send('done', {
         html,
         text,
         model: model || chat.CHAT_MODEL,
         premiumRequests: usage && typeof usage.premiumRequests === 'number' ? usage.premiumRequests : null,
+        gameEdit,
       });
       res.end();
     },
