@@ -455,6 +455,13 @@ namespace GoblinSiege.Bootstrap
             pi.actions = _inputAsset;
             pi.defaultActionMap = "Player";
             pi.neverAutoSwitchControlSchemes = true;
+            // Use C# events ONLY. WarlordController/SquadCommander subscribe directly
+            // to the InputActions; they do NOT expose OnMove(InputValue)-style methods.
+            // The default 'SendMessages' behavior reflectively hunts for those methods
+            // and throws MissingMethodException ('WarlordController.OnMove not found')
+            // every input update — which also stalled the hero. InvokeCSharpEvents
+            // stops that reflection entirely.
+            pi.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
 
             var warlord = go.AddComponent<WarlordController>();
             warlord.SetAlarm(_alarm);
