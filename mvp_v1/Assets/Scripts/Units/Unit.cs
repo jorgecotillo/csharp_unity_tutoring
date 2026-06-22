@@ -270,6 +270,12 @@ namespace GoblinSiege.Units
         private void PushColor(Color c)
         {
             if (BodyRenderer == null) return;
+            // Do NOT tint real skinned character models (Paladin/Maw) — a persistent
+            // color multiply would wipe out their textures, which the user explicitly
+            // wants to keep ("I want to add visual art so it looks nice"). State cues
+            // for models come from the UnitAlertIndicator ring instead. Primitive
+            // fallbacks (MeshRenderer) still tint for the G4 readability language.
+            if (BodyRenderer is SkinnedMeshRenderer) return;
             BodyRenderer.GetPropertyBlock(_mpb);
             _mpb.SetColor(ColorId, c);
             _mpb.SetColor(BaseColorId, c);
