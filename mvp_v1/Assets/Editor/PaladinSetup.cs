@@ -82,7 +82,7 @@ namespace GoblinSiege.EditorTools
         // 1.8 ≈ 2.6 * 0.7, matching the spec's "Run > moveSpeed*0.7".
         private const float RunThreshold  = 1.8f;
 
-        private const string SessionKey = "GoblinSiege.PaladinSetup.AutoBuildDone";
+        private const string SessionKey = "GoblinSiege.PaladinSetup.AutoBuildDone.v2";
 
         // ───────────────────────────────────────────────────────────────────────
         // AUTO-ONCE: build the human after a domain reload if it doesn't exist yet.
