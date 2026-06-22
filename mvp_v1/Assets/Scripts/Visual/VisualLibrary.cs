@@ -56,6 +56,20 @@ namespace GoblinSiege.Visual
         public static readonly Color FieldGreen      = new(0.30f, 0.42f, 0.22f);
         public static readonly Color VillageTan      = new(0.55f, 0.47f, 0.33f);
 
+        // ── Phase D prop palette (3D_MIGRATION_SPEC §3 Phase D) ──────────────────
+        // Earthy, low-saturation tints so DECORATION never competes with the
+        // high-contrast gameplay role colors above (G4). These are scenery, not
+        // signals — they must read as "background hamlet", not "click me".
+        public static readonly Color WoodBrown    = new(0.42f, 0.32f, 0.22f); // palisade / fence / bridge / tower
+        public static readonly Color CottageTimber = new(0.46f, 0.34f, 0.24f); // cottage walls
+        public static readonly Color StoneGrey    = new(0.62f, 0.60f, 0.56f); // chapel / well stone
+        public static readonly Color BarnRed      = new(0.50f, 0.27f, 0.20f); // barn / granary timber
+        public static readonly Color BarracksWood = new(0.38f, 0.30f, 0.24f); // garrison barracks
+        public static readonly Color FoliageGreen = new(0.20f, 0.42f, 0.18f); // tree canopy
+        public static readonly Color RockGrey     = new(0.50f, 0.50f, 0.50f); // boulders
+        public static readonly Color HayYellow    = new(0.74f, 0.62f, 0.28f); // haystacks
+        public static readonly Color StallWood    = new(0.55f, 0.42f, 0.28f); // market stall
+
         // Stable VisualLibrary keys (the swap contract). Spawners use these
         // constants instead of magic strings so a typo is a compile error.
         public const string KeyHuman         = "Human";
@@ -70,6 +84,20 @@ namespace GoblinSiege.Visual
         public const string KeyExtraction    = "Extraction";
         public const string KeyGroundField   = "GroundField";
         public const string KeyGroundVillage = "GroundVillage";
+
+        // ── Phase D structure/scenery keys (stable swap contract, spec §2) ───────
+        public const string KeyWatchtower = "Watchtower";
+        public const string KeyCottage    = "Cottage";
+        public const string KeyChapel     = "Chapel";
+        public const string KeyBarn       = "Barn";
+        public const string KeyBarracks   = "Barracks";
+        public const string KeyWell       = "Well";
+        public const string KeyTree       = "Tree";
+        public const string KeyRock       = "Rock";
+        public const string KeyFence      = "Fence";
+        public const string KeyBridge     = "Bridge";
+        public const string KeyStall      = "Stall";
+        public const string KeyHaystack   = "Haystack";
 
         // Shared-material cache (G3). Key = a stable color tag; value = the one
         // Material every instance of that role reuses. Guarded against Unity's
@@ -166,7 +194,35 @@ namespace GoblinSiege.Visual
 
             // --- Structures ---
             KeyGate => Prim(PrimitiveType.Cube, GateBrown, "gate", new Vector3(3.00f, 1.30f, 0.45f)),
-            KeyWall => Prim(PrimitiveType.Cube, new Color(0.42f, 0.32f, 0.22f), "wall", new Vector3(4.00f, 1.30f, 0.45f)),
+            // Palisade shares the "timber" material with the watchtower/fence/bridge (G3).
+            KeyWall => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(4.00f, 1.30f, 0.45f)),
+
+            // ── Phase D props (3D_MIGRATION_SPEC §3) ─────────────────────────────
+            // GUARDRAIL G4: scenery is LOW and SHORT so it never hides a unit
+            // silhouette from the tilted RTS camera. Buildings are footprint-first
+            // (wide + low), towers are thin, ground clutter is knee-high. Each prop
+            // shares ONE material per "ColorTag" (G3): no per-instance allocations.
+
+            // Timber threshold tower — thin so it reads as a landmark, not a wall.
+            KeyWatchtower => Prim(PrimitiveType.Cylinder, WoodBrown, "timber", new Vector3(0.70f, 1.30f, 0.70f)),
+
+            // Village buildings — wide, LOW boxes (timber+thatch suggested by tint).
+            KeyCottage  => Prim(PrimitiveType.Cube, CottageTimber, "cottage",  new Vector3(3.20f, 1.00f, 3.00f)),
+            KeyChapel   => Prim(PrimitiveType.Cube, StoneGrey,     "chapel",   new Vector3(3.60f, 1.60f, 4.20f)),
+            KeyBarn     => Prim(PrimitiveType.Cube, BarnRed,       "barn",     new Vector3(4.20f, 1.20f, 3.20f)),
+            KeyBarracks => Prim(PrimitiveType.Cube, BarracksWood,  "barracks", new Vector3(5.00f, 1.20f, 3.20f)),
+            KeyStall    => Prim(PrimitiveType.Cube, StallWood,     "stall",    new Vector3(1.80f, 0.85f, 1.60f)),
+
+            // Round props (cylinders/sphere). Half-height handling is fixed in
+            // NativeHalfHeight so cylinders rest ON the ground, not half-sunk.
+            KeyWell     => Prim(PrimitiveType.Cylinder, StoneGrey,    "well",     new Vector3(1.00f, 0.28f, 1.00f)),
+            KeyHaystack => Prim(PrimitiveType.Cylinder, HayYellow,    "hay",      new Vector3(1.10f, 0.55f, 1.10f)),
+            KeyTree     => Prim(PrimitiveType.Cylinder, FoliageGreen, "tree",     new Vector3(1.10f, 0.95f, 1.10f)),
+            KeyRock     => Prim(PrimitiveType.Sphere,   RockGrey,     "rock",     new Vector3(1.10f, 0.70f, 1.30f)),
+
+            // Knee-high field clutter — must not occlude (G4).
+            KeyFence    => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(2.20f, 0.50f, 0.18f)),
+            KeyBridge   => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(3.20f, 0.28f, 2.40f)),
 
             // --- Markers / ground (flat; not lifted — positioned explicitly) ---
             KeyExtraction => PrimFlat(PrimitiveType.Cube, ExtractionBlue, "extraction",
@@ -195,9 +251,11 @@ namespace GoblinSiege.Visual
         };
 
         // Native half-height of a unit-scale primitive, used for ground-resting.
-        // Unity capsule is 2 units tall (half = 1.0); cube/cylinder are 1 (half 0.5).
+        // Unity's Capsule AND Cylinder are 2 units tall (half = 1.0); Cube/Sphere/
+        // Quad/Plane are 1 unit (half = 0.5). Phase D added cylinders (well, tower,
+        // tree, haystack) so Cylinder MUST be 1.0 here or they sink half underground.
         private static float NativeHalfHeight(PrimitiveType shape) =>
-            shape == PrimitiveType.Capsule ? 1.0f : 0.5f;
+            (shape == PrimitiveType.Capsule || shape == PrimitiveType.Cylinder) ? 1.0f : 0.5f;
 
         // ───────────────────────────────────────────────────────────────────────
         // Shared material per role (G3). Built once, reused forever. Null-guarded

@@ -32,10 +32,15 @@ namespace GoblinSiege.Bootstrap
     {
         [Header("Camera (tilted RTS — GUARDRAIL G1)")]
         [Tooltip("World position of the perspective camera (raised + pulled south).")]
-        [SerializeField] private Vector3 cameraPosition = new(0f, 24f, -9f);
+        // Phase D widened/raised the framing: the hamlet now extends further north
+        // (barracks z≈16, chapel z≈19) and the field/tree-line further south. We
+        // pulled the camera south (−Z) and up (+Y) and opened the FOV a touch so the
+        // WHOLE board still reads at a glance — WITHOUT lowering the tilt (still a
+        // top-down RTS cam, ~58°, never behind-the-shoulder). G1 preserved.
+        [SerializeField] private Vector3 cameraPosition = new(0f, 26f, -13f);
         [Tooltip("Downward pitch in degrees (~50–60 keeps the whole board readable).")]
         [SerializeField] private float cameraPitch = 58f;
-        [SerializeField] private float cameraFov = 52f;
+        [SerializeField] private float cameraFov = 56f;
 
         /// <summary>
         /// AUTO-START: with no setup at all, just press Play. Unity calls this after the
@@ -96,6 +101,10 @@ namespace GoblinSiege.Bootstrap
             SetupCamera();
             SetupLighting();
             SetupGround();
+
+            // Phase D: code-built terrain dressing (village + field) via the art seam.
+            // Pure scenery — no gameplay components — so it can run before the systems.
+            BuildHamlet();
 
             // --- Systems live on one child GameObject ---
             var sysGo = new GameObject("Systems");
@@ -185,11 +194,206 @@ namespace GoblinSiege.Bootstrap
 
         private void SetupGround()
         {
-            // Big flat ground via the art seam (GroundField key). Its top sits at y≈0, the
-            // plane the order-raycast (SquadCommander) intersects. Phase D will split this
-            // into field + village zones; for Phase B one field plane is enough.
-            VisualLibrary.Spawn(VisualLibrary.KeyGroundField,
-                new Vector3(0f, -0.1f, 6f), Quaternion.identity, transform);
+            // ═══════════════════════════════════════════════════════════════════
+            // GROUND — two visual zones on one flat XZ plane (3D_MIGRATION §3 Phase D)
+            // ═══════════════════════════════════════════════════════════════════
+            // SOUTH (−Z) = FIELD (grass green) where the warband deploys/extracts.
+            // NORTH (+Z) = VILLAGE (tan/dirt) past the gate. Both are flat (G2): the
+            // "gentle rise toward the village" is a SUBTLE cosmetic step (village top
+            // sits a hair above the field top) — never enough to clip the units, whose
+            // Y is frozen at the play plane.
+            //
+            // Both come through the art seam (GroundField / GroundVillage keys). We
+            // override the returned transform's localScale to size each zone (Spawn
+            // intentionally has no scale arg — sizing scenery is the caller's job).
+
+            // Field base — covers the WHOLE board; the village tan overlays its north.
+            GameObject field = VisualLibrary.Spawn(VisualLibrary.KeyGroundField,
+                new Vector3(0f, -0.12f, -2f), Quaternion.identity, transform);
+            field.transform.localScale = new Vector3(56f, 0.20f, 60f); // x ±28, z −32..28
+
+            // Village dirt overlay — north of the gate threshold (z≈4) up to the chapel.
+            GameObject village = VisualLibrary.Spawn(VisualLibrary.KeyGroundVillage,
+                new Vector3(0f, -0.06f, 14f), Quaternion.identity, transform);
+            village.transform.localScale = new Vector3(34f, 0.20f, 22f); // x ±17, z 3..25
+
+            // ── Order-raycast safety collider (the user asked for one) ──────────
+            // SquadCommander casts against a MATH Plane(y=0), so a physics collider
+            // isn't strictly required — but a big flat ground collider is belt-and-
+            // suspenders for any future collider-based raycast and costs nothing (one
+            // static box, G3). Its TOP sits just BELOW the play plane (y≈−0.06) and
+            // unit Y is frozen, so it can never push, jitter, or trap a unit (G2).
+            var colliderGo = new GameObject("GroundCollider");
+            colliderGo.transform.SetParent(transform);
+            colliderGo.transform.position = new Vector3(0f, -5.06f, -2f);
+            var box = colliderGo.AddComponent<BoxCollider>();
+            box.size = new Vector3(56f, 10f, 60f); // top at y = -5.06 + 5 = -0.06
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // PHASE D — TERRAIN + VILLAGE (3D_MIGRATION_SPEC §3)
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Builds the hamlet-being-raided-from-the-south as code, entirely through
+        // VisualLibrary keys so the user can later drop real art prefabs under
+        // Assets/Resources/Prefabs/<key>.prefab with ZERO code changes (the §2 seam).
+        //
+        // GUARDRAIL G4 (readability is paramount) governs EVERY placement here:
+        //   • Buildings are wide + LOW (footprint-first) and pushed to the flanks so
+        //     they never sit between the camera and a unit / cache / the gate.
+        //   • The central lane (|x| ≲ 5) and the cache cluster stay UNOBSTRUCTED.
+        //   • The tree line frames the extraction from the FLANKS, leaving the central
+        //     extraction lane open so escaping goblins are never hidden.
+        // GUARDRAIL G3: ~45 cheap primitives, one shared material per prop type, no
+        // per-frame work — this is all spawned once at Start and never touched again.
+        // GUARDRAIL G5: nothing here animates; if a brazier flicker is added later it
+        // MUST use Time.time/Time.deltaTime (see the nice-to-have TODO at the bottom).
+        // ═══════════════════════════════════════════════════════════════════════════
+        private void BuildHamlet()
+        {
+            var village = new GameObject("Village (props)").transform;
+            village.SetParent(transform);
+            var fieldRoot = new GameObject("Field (props)").transform;
+            fieldRoot.SetParent(transform);
+
+            BuildThreshold(village); // wall + gate-flanking watchtowers at z≈4
+            BuildVillage(village);   // well, cottages, chapel, barn, barracks, dressing
+            BuildField(fieldRoot);   // road, stream+bridge, tree line, rocks, fences
+        }
+
+        /// <summary>
+        /// THE ACT 1→2 THRESHOLD: a timber palisade spanning the map at z≈4 with the
+        /// existing breachable Gate centered (spawned by RaidManager from the raid
+        /// data) and watchtowers flanking it. This is the "barrier the user asked for".
+        /// </summary>
+        private void BuildThreshold(Transform parent)
+        {
+            const float z = 4f; // matches the gate's data position (0,4)
+
+            // Palisade segments left & right of the 3-wide central gate (x −1.5..1.5).
+            // Each Wall fallback is 4 wide; placed so the line reads continuous.
+            float[] wallX = { -3f, -7f, -11f, 3f, 7f, 11f };
+            foreach (float x in wallX)
+                SpawnProp(VisualLibrary.KeyWall, x, z, 0f, parent);
+
+            // Two thin watchtowers hugging the gate — vertical landmarks marking the
+            // breach point. Thin (G4) so they punctuate without walling off the view.
+            SpawnProp(VisualLibrary.KeyWatchtower, -2.0f, z, 0f, parent);
+            SpawnProp(VisualLibrary.KeyWatchtower,  2.0f, z, 0f, parent);
+        }
+
+        /// <summary>
+        /// The village proper (north / +Z): a central well + square, a ring of low
+        /// cottages on the flanks, the chapel landmark at the far north, the barn by
+        /// the granary cache, the barracks at the garrison spawn origin, plus stall +
+        /// haystack dressing. Everything hugs the sides so the cache cluster
+        /// (crates ±4·z6, chests ±3·z9, granary 0·z12) and the central combat lane
+        /// stay clear from the camera (G4).
+        /// </summary>
+        private void BuildVillage(Transform parent)
+        {
+            // Heart of the hamlet: the well in the central square (low — never occludes).
+            SpawnProp(VisualLibrary.KeyWell, 0f, 7f, 0f, parent);
+
+            // Five cottages, all on the flanks (|x| ≥ 7), yawed for variety.
+            SpawnProp(VisualLibrary.KeyCottage, -8.0f,  7.0f,  25f, parent);
+            SpawnProp(VisualLibrary.KeyCottage,  8.0f,  7.0f, -25f, parent);
+            SpawnProp(VisualLibrary.KeyCottage, -9.0f, 11.0f,  10f, parent);
+            SpawnProp(VisualLibrary.KeyCottage,  9.0f, 11.0f, -15f, parent);
+            SpawnProp(VisualLibrary.KeyCottage,  7.5f, 15.0f, -30f, parent);
+
+            // Barn standing in for the GRANARY cache (data granary is at 0·z12). Placed
+            // to the NW of it so — with the camera looking north — the barn never sits
+            // in front of (occluding) the gold cache the player must reach (G4).
+            SpawnProp(VisualLibrary.KeyBarn, -6.0f, 14.0f, 15f, parent);
+
+            // Barracks at the north = the garrison spawn origin (spawn points are at
+            // z14..16). Humans now visibly muster FROM the barracks. Wide + low.
+            SpawnProp(VisualLibrary.KeyBarracks, 0f, 16.5f, 0f, parent);
+
+            // Chapel: the far-north landmark closing the skyline. The spec frames it as
+            // "housing the Vault cache" — the CURRENT raid data (raid-01) has no Vault
+            // (its richest cache is the Granary), so the chapel is a pure landmark here
+            // and gameplay is unchanged. If a Vault cache is later added to the data,
+            // this is exactly where it belongs. (No balance change — see CONSTRAINTS.)
+            SpawnProp(VisualLibrary.KeyChapel, 0f, 19.0f, 0f, parent);
+
+            // Dressing — kept off the flanks' building footprints and the center lane.
+            SpawnProp(VisualLibrary.KeyStall,    -6.5f,  6.0f, 20f, parent);
+            SpawnProp(VisualLibrary.KeyHaystack,  5.0f, 13.0f,  0f, parent);
+            SpawnProp(VisualLibrary.KeyHaystack, -10.0f, 8.0f,  0f, parent);
+        }
+
+        /// <summary>
+        /// The field (south / −Z): a dirt road guiding the route north to the gate, a
+        /// muddy stream/ford with a Bridge as a midfield landmark, the southern tree
+        /// line framing the extraction (blue) marker, scattered rocks, and a small
+        /// pasture fence. All clutter is knee-high and kept to the flanks (G4).
+        /// </summary>
+        private void BuildField(Transform parent)
+        {
+            // Dirt road: a thin tan (dirt) strip from the deep south up to the gate,
+            // guiding the eye along the assault route. Reuses the GroundVillage (dirt)
+            // material/key — a dirt road IS dirt — and is sized by the caller.
+            SpawnGroundStrip(VisualLibrary.KeyGroundVillage,
+                new Vector3(0f, -0.02f, -2f), new Vector3(3.0f, 0.16f, 14f), parent);
+
+            // Midfield landmark: a muddy creek/ford crossing east–west, with a timber
+            // Bridge where the road meets it. NOTE: this is a *dirt-toned* ford, not
+            // open water — true animated blue water is intentionally NOT used because
+            // (a) §2 has no Water key and (b) blue is RESERVED for the extraction goal
+            // (G4). A proper animated stream is a clearly-marked nice-to-have (below).
+            SpawnGroundStrip(VisualLibrary.KeyGroundVillage,
+                new Vector3(0f, -0.03f, -3.5f), new Vector3(26f, 0.14f, 1.6f), parent);
+            SpawnProp(VisualLibrary.KeyBridge, 0f, -3.5f, 0f, parent);
+
+            // Southern tree line = the extraction marker's frame. Trees sit on the
+            // FLANKS (|x| ≥ 8) only, leaving the central extraction lane (x ±4, z≈0)
+            // wide open so escaping goblins/warlord are NEVER hidden behind a trunk (G4).
+            (float x, float z)[] trees =
+            {
+                (-9f, -1f), (-11f, -3f), (-8f, -6f), (-12f, -7f),
+                ( 9f, -1f), ( 11f, -3f), ( 8f, -6f), ( 12f, -7f),
+                (-13f,  3f), (13f,  5f),
+            };
+            foreach (var (tx, tz) in trees)
+                SpawnProp(VisualLibrary.KeyTree, tx, tz, 0f, parent);
+
+            // Scattered boulders at the field edges (low, never in a play lane).
+            (float x, float z)[] rocks = { (-14f, 1f), (14f, -2f), (-10f, -9f), (10f, -8f), (13f, 9f) };
+            foreach (var (rx, rz) in rocks)
+                SpawnProp(VisualLibrary.KeyRock, rx, rz, 0f, parent);
+
+            // A small pasture fence in the east field (decorative Fence is field-only,
+            // per the spec — never used as the village wall). Knee-high (G4).
+            SpawnProp(VisualLibrary.KeyFence,  9.0f, 1.0f,  0f, parent);
+            SpawnProp(VisualLibrary.KeyFence, 11.2f, 1.0f,  0f, parent);
+            SpawnProp(VisualLibrary.KeyFence, 12.3f, 2.6f, 90f, parent);
+            SpawnProp(VisualLibrary.KeyFence,  8.0f, 2.6f, 90f, parent);
+
+            // ── NICE-TO-HAVE TODOs (left out to protect G3/G4 + the key contract) ──
+            // • Alarm-reactive cottage window lights + a square brazier: subscribe to
+            //   AlarmSystem.OnThresholdChanged and emissive-boost a few props. Any
+            //   flicker MUST be driven by Time.time/Time.deltaTime (G5), never a frame
+            //   counter — see ZonePulse for the correct pattern.
+            // • Breakable barrels, animals, a skyline windmill, and a true animated
+            //   blue stream (needs its OWN VisualLibrary key so it doesn't clash with
+            //   the reserved extraction-blue, G4).
+        }
+
+        // Spawn a scenery prop on the ground plane via the art seam.
+        private GameObject SpawnProp(string key, float x, float z, float yawDegrees, Transform parent)
+        {
+            return VisualLibrary.Spawn(key,
+                new Vector3(x, 0f, z), Quaternion.Euler(0f, yawDegrees, 0f), parent);
+        }
+
+        // Spawn a flat ground strip (road / ford) and size it. The GroundField/Village
+        // fallbacks are flat (not lifted), so the passed center IS the strip's center.
+        private GameObject SpawnGroundStrip(string key, Vector3 center, Vector3 scale, Transform parent)
+        {
+            GameObject go = VisualLibrary.Spawn(key, center, Quaternion.identity, parent);
+            go.transform.localScale = scale;
+            return go;
         }
 
         private Transform MakePoint(string name, Vector3 pos)
