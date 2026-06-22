@@ -1,0 +1,1 @@
+Drop <VisualLibraryKey>.prefab files here (e.g. Human.prefab, Goblin.prefab, Gate.prefab). VisualLibrary.Spawn loads Resources/Prefabs/<key> automatically; otherwise it falls back to a tinted primitive. No code changes needed.
