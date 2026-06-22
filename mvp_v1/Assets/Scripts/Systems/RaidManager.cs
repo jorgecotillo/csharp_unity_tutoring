@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using GoblinSiege.Core;
 using GoblinSiege.Meta;
 using GoblinSiege.Units;
+using GoblinSiege.Visual;
 using UnityEngine;
 
 namespace GoblinSiege.Systems
@@ -25,10 +26,9 @@ namespace GoblinSiege.Systems
         [SerializeField] private GarrisonSpawner garrison;
         [SerializeField] private ExtractionZone extraction;
 
-        [Header("Prefabs")]
-        [SerializeField] private GoblinUnit goblinUnitPrefab;
-        [SerializeField] private LootCache cachePrefab;
-        [SerializeField] private Gate gatePrefab;
+        // 3D MIGRATION (§2): no more sprite "prefab" templates. Caches, gates and
+        // goblins are spawned through VisualLibrary keys, so dropping real art needs
+        // no code change. Only the deploy point and systems remain as references.
 
         [Header("Deploy")]
         [SerializeField] private Transform deployPoint;
@@ -61,19 +61,17 @@ namespace GoblinSiege.Systems
         /// <summary>
         /// Runtime dependency injection used by RaidBootstrap (no scene/prefab wiring).
         /// Sets all references plus the raw raid JSON, then starts the raid.
+        /// 3D MIGRATION: unit/cache/gate visuals now come from VisualLibrary, so no
+        /// prefab references are passed in any more.
         /// </summary>
         public void Inject(string rawJson, AlarmSystem alarmSys, QuotaSystem quotaSys,
-            GarrisonSpawner garrisonSys, ExtractionZone extractionZone,
-            GoblinUnit goblinPrefab, LootCache cachePrefabRef, Gate gatePrefabRef, Transform deploy)
+            GarrisonSpawner garrisonSys, ExtractionZone extractionZone, Transform deploy)
         {
             _rawJsonOverride = rawJson;
             alarm = alarmSys;
             quota = quotaSys;
             garrison = garrisonSys;
             extraction = extractionZone;
-            goblinUnitPrefab = goblinPrefab;
-            cachePrefab = cachePrefabRef;
-            gatePrefab = gatePrefabRef;
             deployPoint = deploy;
             autoStartOnPlay = false;
             BeginRaid();
@@ -136,11 +134,13 @@ namespace GoblinSiege.Systems
 
         private void SpawnGates()
         {
-            if (_data.gates == null || gatePrefab == null) return;
+            if (_data.gates == null) return;
             foreach (GateSpawn g in _data.gates)
             {
-                Vector2 pos = ToVec(g.pos);
-                Gate gate = Instantiate(gatePrefab, pos, Quaternion.identity, transform);
+                Vector3 pos = ToVec(g.pos);
+                // ART SEAM: gate visual via VisualLibrary("Gate"); gameplay attached here.
+                GameObject go = VisualLibrary.Spawn(VisualLibrary.KeyGate, pos, Quaternion.identity, transform);
+                Gate gate = go.GetComponent<Gate>() ?? go.AddComponent<Gate>();
                 gate.Init(g.hp);
                 gate.OnBreached += HandleGateBreached;
                 _gates.Add(gate);
@@ -149,17 +149,29 @@ namespace GoblinSiege.Systems
 
         private void SpawnCaches()
         {
-            if (_data.caches == null || cachePrefab == null) return;
+            if (_data.caches == null) return;
             foreach (CacheSpawn c in _data.caches)
             {
                 if (!Enum.TryParse(c.type, true, out CacheType type)) type = CacheType.Crate;
-                Vector2 pos = ToVec(c.pos);
-                LootCache cache = Instantiate(cachePrefab, pos, Quaternion.identity, transform);
+                Vector3 pos = ToVec(c.pos);
+                // ART SEAM: per-type cache visual via VisualLibrary("Cache_<Type>").
+                GameObject go = VisualLibrary.Spawn(CacheKey(type), pos, Quaternion.identity, transform);
+                LootCache cache = go.GetComponent<LootCache>() ?? go.AddComponent<LootCache>();
                 cache.Init(type);
                 cache.OnLooted += HandleCacheLooted;
                 _caches.Add(cache);
             }
         }
+
+        /// <summary>Maps a cache type to its stable VisualLibrary key.</summary>
+        private static string CacheKey(CacheType type) => type switch
+        {
+            CacheType.Crate => VisualLibrary.KeyCacheCrate,
+            CacheType.Chest => VisualLibrary.KeyCacheChest,
+            CacheType.Granary => VisualLibrary.KeyCacheGranary,
+            CacheType.Vault => VisualLibrary.KeyCacheVault,
+            _ => VisualLibrary.KeyCacheCrate
+        };
 
         private void SpawnGarrison()
         {
@@ -173,14 +185,15 @@ namespace GoblinSiege.Systems
                 ? WarbandState.Instance.DeployableTypes()
                 : DefaultBand();
 
-            Vector2 origin = deployPoint != null ? (Vector2)deployPoint.position : Vector2.zero;
+            Vector3 origin = deployPoint != null ? deployPoint.position : Vector3.zero;
             for (int i = 0; i < types.Count; i++)
             {
                 var go = new GameObject($"Squad_{i}_{types[i]}");
                 go.transform.SetParent(transform);
                 Squad squad = go.AddComponent<Squad>();
-                Vector2 squadOrigin = origin + new Vector2((i - (types.Count - 1) * 0.5f) * 2f, 0f);
-                squad.Build(types[i], Balance.UnitsPerSquad, goblinUnitPrefab, squadOrigin);
+                // Spread squads along X (the flat plane's left-right axis).
+                Vector3 squadOrigin = origin + new Vector3((i - (types.Count - 1) * 0.5f) * 2f, 0f, 0f);
+                squad.Build(types[i], Balance.UnitsPerSquad, squadOrigin);
                 squad.OnDestroyed += HandleSquadDestroyed;
                 _squads.Add(squad);
             }
@@ -308,8 +321,10 @@ namespace GoblinSiege.Systems
             return flags;
         }
 
-        private static Vector2 ToVec(float[] xy)
-            => xy is { Length: >= 2 } ? new Vector2(xy[0], xy[1]) : Vector2.zero;
+        // 2D→3D coordinate mapping (§0): JSON [x, y] becomes world (x, 0, y), so the
+        // old 2D-Y axis is the new world-Z (north/south on the flat board).
+        private static Vector3 ToVec(float[] xy)
+            => xy is { Length: >= 2 } ? new Vector3(xy[0], 0f, xy[1]) : Vector3.zero;
 
         private void OnDestroy()
         {

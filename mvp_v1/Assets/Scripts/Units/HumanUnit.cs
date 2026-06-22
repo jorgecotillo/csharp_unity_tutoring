@@ -14,7 +14,7 @@ namespace GoblinSiege.Units
         [SerializeField] private HumanType humanType = HumanType.Militia;
         [SerializeField] private float guardLeashRadius = 6f;
 
-        private Vector2 _postPosition;
+        private Vector3 _postPosition;
         private IState _current;
         private GuardState _guard;
         private AlertState _alert;
@@ -22,7 +22,7 @@ namespace GoblinSiege.Units
 
         public HumanType HumanType => humanType;
 
-        public void Init(HumanType type, Vector2 post)
+        public void Init(HumanType type, Vector3 post)
         {
             humanType = type;
             _postPosition = post;
@@ -54,7 +54,7 @@ namespace GoblinSiege.Units
             _current?.Enter();
         }
 
-        internal Vector2 Post => _postPosition;
+        internal Vector3 Post => _postPosition;
         internal float GuardLeash => guardLeashRadius;
         internal bool ForcedAlert => _forceAlert;
         internal Unit NearestRaider() => CombatRegistry.FindNearestEnemy(this);
@@ -74,18 +74,24 @@ namespace GoblinSiege.Units
         // _hitFlashBaseColor — which is captured at flash-start. So if a human
         // is in Alert (bright red) and gets hit, the flash restores to bright
         // red. If they're in Guard (dull grey-red), the flash restores to dull.
-        // The two systems cooperate without fighting over Sprite.color.
+        // The two systems cooperate without fighting over the display color.
         //
-        // IMPLEMENTATION:
-        // Nested state classes can access protected members of the enclosing
-        // instance (_h.Sprite), but keeping a small helper centralizes the
-        // null-check and documents intent. Sprite is set by Unit.Awake(), so
-        // it's guaranteed assigned before Init() runs (spawners call Init()
-        // after Instantiate, which fires Awake). Still, we guard for safety.
+        // IMPLEMENTATION (3D MIGRATION):
+        // The old 2D version tinted a SpriteRenderer. In 3D the body is a primitive
+        // MeshRenderer (or, later, an art prefab) that SHARES one material per role
+        // (G3). So tinting routes through Unit.SetVisualTint, which uses a
+        // MaterialPropertyBlock — a per-renderer color override with NO material
+        // allocation. The shared material stays shared; only THIS human's color
+        // changes. The renderer is cached in Unit.Awake() before Init() runs.
         // ─────────────────────────────────────────────────────────────────────
         internal void SetTint(Color c)
         {
-            if (Sprite != null) Sprite.color = c;
+            // 3D MIGRATION: tinting now routes through Unit.SetVisualTint, which
+            // uses a MaterialPropertyBlock (no per-instance material allocation —
+            // G3) and works on the 3D primitive's MeshRenderer. The Guard/Alert
+            // readability language (G4) is preserved exactly. Null-safe if the unit
+            // somehow has no renderer.
+            SetVisualTint(c);
         }
 
         // --- States ---
@@ -114,7 +120,7 @@ namespace GoblinSiege.Units
             {
                 Unit raider = _h.NearestRaider();
                 if (raider == null) return;
-                float distSqr = ((Vector2)raider.transform.position - (Vector2)_h.transform.position).sqrMagnitude;
+                float distSqr = CombatRegistry.FlatSqr(raider.transform.position, _h.transform.position);
                 if (_h.ForcedAlert || distSqr <= _h.GuardLeash * _h.GuardLeash)
                     _h.TransitionTo(_h._alert);
             }
@@ -159,7 +165,7 @@ namespace GoblinSiege.Units
                 if (!_h.ForcedAlert)
                 {
                     // Disengage back to post if raiders flee far beyond the leash.
-                    float distSqr = ((Vector2)raider.transform.position - _h.Post).sqrMagnitude;
+                    float distSqr = CombatRegistry.FlatSqr(raider.transform.position, _h.Post);
                     float leash = _h.GuardLeash * 2.5f;
                     if (distSqr > leash * leash) _h.TransitionTo(_h._guard);
                 }

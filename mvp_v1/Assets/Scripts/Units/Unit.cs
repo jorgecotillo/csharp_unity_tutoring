@@ -8,9 +8,22 @@ namespace GoblinSiege.Units
     /// <summary>
     /// Base for every combatant (goblin or human). Holds HP, stats, and simple
     /// auto-attack-the-nearest-enemy behaviour. Movement targets are set by squad
-    /// orders (goblins) or the FSM AI (humans). 2D, top-down, WebGL-safe.
+    /// orders (goblins) or the FSM AI (humans).
+    ///
+    /// 3D MIGRATION (3D_MIGRATION_SPEC Phase A): this used to be a 2D unit
+    /// (Rigidbody2D / SpriteRenderer / Vector2). It is now a full-3D unit that lives
+    /// on a FLAT XZ ground plane:
+    ///   • Physics body is a 3D <see cref="Rigidbody"/> with gravity off and Y frozen,
+    ///     so units glide on the plane and never tip over (G2 "flat gameplay").
+    ///   • All distance/targeting math ignores Y (see <see cref="CombatRegistry.FlatSqr"/>),
+    ///     so a tall model is never considered "farther" than a short one (G2).
+    ///   • Movement happens in <see cref="FixedUpdate"/> via <c>Body.linearVelocity</c>
+    ///     (frame-rate independent — G5). No per-frame transform nudging.
+    ///   • Per-instance tinting (hit-flash, Guard/Alert) is done with a
+    ///     MaterialPropertyBlock so the role's SHARED material stays shared and we
+    ///     never allocate a material per frame (G3).
     /// </summary>
-    [RequireComponent(typeof(Rigidbody2D))]
+    [RequireComponent(typeof(Rigidbody))]
     public abstract class Unit : MonoBehaviour, IDamageable
     {
         [SerializeField] protected Team team;
@@ -21,25 +34,38 @@ namespace GoblinSiege.Units
         [SerializeField] protected float attackRange = 1.2f;
         [SerializeField] protected float attackInterval = 1f;
 
-        protected Rigidbody2D Body;
-        protected Vector2 MoveTarget;
+        // 3D physics body (was Rigidbody2D). Movement is velocity-driven on XZ.
+        protected Rigidbody Body;
+        // Move destination is now a 3D world point; only its XZ matters (G2).
+        protected Vector3 MoveTarget;
         protected bool HasMoveTarget;
         private float _attackTimer;
         private Unit _currentEnemy;
 
         // ─────────────────────────────────────────────────────────────────────
-        // CHANGE A: Cached SpriteRenderer for visual effects (hit-flash, etc.)
-        // Nullable because a unit prefab COULD theoretically lack a sprite.
+        // VISUAL TINTING (replaces the old SpriteRenderer hit-flash)
         // ─────────────────────────────────────────────────────────────────────
-        protected SpriteRenderer Sprite;
+        // In 3D the body is a primitive MeshRenderer (or, later, an art prefab)
+        // sharing ONE material per role (G3). To tint a SINGLE instance — the
+        // white hit-flash, or a human's Guard-dim / Alert-bright state — we use a
+        // MaterialPropertyBlock. An MPB overrides shader properties for THIS
+        // renderer only, with NO new Material allocation, so the shared material
+        // stays shared and there are zero per-frame allocations (G3).
+        //
+        // We set BOTH "_Color" (Built-in Standard) and "_BaseColor" (URP/Lit) so
+        // the tint works regardless of render pipeline.
+        // ─────────────────────────────────────────────────────────────────────
+        protected Renderer BodyRenderer;
+        private MaterialPropertyBlock _mpb;
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
-        // ─────────────────────────────────────────────────────────────────────
-        // CHANGE B: Hit-flash bookkeeping.
-        // We store the running coroutine handle AND the base color captured
-        // BEFORE we turned it white. If a second hit lands mid-flash, we must
-        // NOT re-capture "white" as the restore color — we keep the original
-        // and just restart the timer.
-        // ─────────────────────────────────────────────────────────────────────
+        // The unit's current logical color (role tint or Guard/Alert tint). The
+        // hit-flash restores to THIS after flashing white, so it never clobbers a
+        // human's Alert tint. Defaults to white until the spawner calls SetVisualTint.
+        private Color _displayColor = Color.white;
+
+        // Hit-flash bookkeeping (see StartHitFlash).
         private Coroutine _hitFlashCoroutine;
         private Color _hitFlashBaseColor;
 
@@ -49,12 +75,9 @@ namespace GoblinSiege.Units
         public float MaxHp => maxHp;
 
         // ─────────────────────────────────────────────────────────────────────
-        // CHANGE D (T5#3): Subclass hook for objective counting.
-        // Most raiders (goblins) count toward the "looters/extractors" win
-        // condition tracked by CombatRegistry.FindNearestGoblin. However, the
-        // Warlord proxy (a purely-combatant unit) should NOT count — if it did,
-        // standing in the extraction zone would trigger a false win.
-        // Subclasses override this to false to opt out.
+        // Subclass hook for objective counting (unchanged from 2D).
+        // The Warlord proxy overrides this to false so it never counts as a
+        // looter/extractor (see WarlordUnit + INonObjectiveRaider).
         // ─────────────────────────────────────────────────────────────────────
         protected virtual bool CountsAsRaiderObjective => true;
 
@@ -63,16 +86,21 @@ namespace GoblinSiege.Units
 
         protected virtual void Awake()
         {
-            Body = GetComponent<Rigidbody2D>();
-            Body.gravityScale = 0f;
-            Body.freezeRotation = true;
+            // 3D body setup (was: gravityScale = 0, freezeRotation = true on a Rigidbody2D).
+            Body = GetComponent<Rigidbody>();
+            Body.useGravity = false;
+            // Keep units glued to the XZ plane and upright: freeze vertical motion
+            // and tipping (X/Z rotation), but ALLOW yaw (Y rotation) so they can
+            // face their travel direction. This is the heart of G2 "flat gameplay".
+            Body.constraints = RigidbodyConstraints.FreezePositionY
+                             | RigidbodyConstraints.FreezeRotationX
+                             | RigidbodyConstraints.FreezeRotationZ;
+            Body.interpolation = RigidbodyInterpolation.Interpolate; // smooth visuals
+            Body.collisionDetectionMode = CollisionDetectionMode.Discrete;
 
-            // ─────────────────────────────────────────────────────────────────
-            // CHANGE A: Cache the SpriteRenderer for hit-flash and death-pop.
-            // GetComponent returns null if none exists — that's fine; all the
-            // visual-effect code guards with `if (Sprite == null) return`.
-            // ─────────────────────────────────────────────────────────────────
-            Sprite = GetComponent<SpriteRenderer>();
+            // Cache the renderer (MeshRenderer for primitives) and an MPB for tinting.
+            BodyRenderer = GetComponentInChildren<Renderer>();
+            _mpb = new MaterialPropertyBlock();
         }
 
         protected void ApplyStats(Team unitTeam, UnitStats stats)
@@ -89,7 +117,20 @@ namespace GoblinSiege.Units
             HasMoveTarget = false;
         }
 
-        public void OrderMoveTo(Vector2 worldPos)
+        /// <summary>
+        /// Sets this unit's base display color (role tint). The spawner calls this
+        /// right after Init so the hit-flash has a correct color to restore to and
+        /// the readability language (G4) is applied per-instance via MPB.
+        /// </summary>
+        public void SetVisualTint(Color c)
+        {
+            _displayColor = c;
+            PushColor(c);
+        }
+
+        // Order to a world point. Only XZ is used by movement (G2); we keep the
+        // full Vector3 so callers can pass transform.position directly.
+        public void OrderMoveTo(Vector3 worldPos)
         {
             MoveTarget = worldPos;
             HasMoveTarget = true;
@@ -102,20 +143,42 @@ namespace GoblinSiege.Units
 
             if (_currentEnemy != null && InAttackRange(_currentEnemy))
             {
-                Body.linearVelocity = Vector2.zero;
+                Body.linearVelocity = Vector3.zero;
                 TickAttack();
                 return;
             }
 
-            Vector2 dest = _currentEnemy != null ? (Vector2)_currentEnemy.transform.position
+            // Pick a destination: chase the enemy, else honor a move order, else stay put.
+            Vector3 dest = _currentEnemy != null ? _currentEnemy.transform.position
                          : HasMoveTarget ? MoveTarget
-                         : (Vector2)transform.position;
+                         : transform.position;
 
-            Vector2 toDest = dest - (Vector2)transform.position;
+            // Travel only on XZ — zero the Y delta so vertical offset (model height,
+            // ground rest height) never affects movement (G2).
+            Vector3 toDest = dest - transform.position;
+            toDest.y = 0f;
+
             if (toDest.sqrMagnitude > 0.01f)
-                Body.linearVelocity = toDest.normalized * moveSpeed;
+            {
+                Vector3 dir = toDest.normalized;
+                Body.linearVelocity = new Vector3(dir.x, 0f, dir.z) * moveSpeed;
+                FaceDirection(dir);
+            }
             else
-                Body.linearVelocity = Vector2.zero;
+            {
+                Body.linearVelocity = Vector3.zero;
+            }
+        }
+
+        /// <summary>
+        /// Cheap yaw-only facing: rotate the body to look along its flat travel
+        /// direction. LookRotation of an XZ vector yields a pure Y rotation, which
+        /// is exactly what the FreezeRotationX/Z constraints permit.
+        /// </summary>
+        private void FaceDirection(Vector3 flatDir)
+        {
+            if (flatDir.sqrMagnitude < 0.0001f) return;
+            Body.MoveRotation(Quaternion.LookRotation(new Vector3(flatDir.x, 0f, flatDir.z), Vector3.up));
         }
 
         private void AcquireEnemyIfNeeded()
@@ -127,7 +190,8 @@ namespace GoblinSiege.Units
         private bool InAttackRange(Unit enemy)
         {
             float r = attackRange + 0.4f;
-            return ((Vector2)enemy.transform.position - (Vector2)transform.position).sqrMagnitude <= r * r;
+            // XZ distance only (G2): a tall human is not "out of range" vertically.
+            return CombatRegistry.FlatSqr(enemy.transform.position, transform.position) <= r * r;
         }
 
         private void TickAttack()
@@ -150,61 +214,36 @@ namespace GoblinSiege.Units
                 return true;
             }
 
-            // ─────────────────────────────────────────────────────────────────
-            // CHANGE B (T3): Hit-flash for combat readability.
-            // Flash the sprite white for ~0.08s then restore. We ONLY flash if
-            // the unit survived (we reach this code only if hp > 0 after damage).
-            //
-            // ROBUSTNESS: If a second hit lands while we're mid-flash, we must
-            // NOT capture "white" as the restore color. So we:
-            //   1. If no flash is running → capture current color as base.
-            //   2. If a flash IS running → stop it, but KEEP the old base color.
-            //   3. Start a fresh flash coroutine either way.
-            // At the end of the flash, we restore _hitFlashBaseColor and clear
-            // the handle so the next hit knows no flash is active.
-            // ─────────────────────────────────────────────────────────────────
+            // Survived → flash white briefly for combat readability (T3).
             StartHitFlash();
-
             return false;
         }
 
-        /// <summary>
-        /// Begins (or restarts) the hit-flash effect. Null-safe for units
-        /// without a SpriteRenderer.
-        /// </summary>
+        // ─────────────────────────────────────────────────────────────────────
+        // Hit-flash: turn the body white for ~0.08s then restore the display color.
+        // Robust to overlapping hits: if a flash is already running we keep the
+        // ORIGINAL base color (never re-capture "white"), restart the timer.
+        // Null-safe for units with no renderer.
+        // ─────────────────────────────────────────────────────────────────────
         private void StartHitFlash()
         {
-            // Guard: no sprite → nothing to flash.
-            if (Sprite == null) return;
+            if (BodyRenderer == null) return;
 
             if (_hitFlashCoroutine == null)
-            {
-                // No flash in progress → capture current color as the base.
-                // This preserves T2's alert-tint (grey-red or bright-red) that
-                // the human FSM may have applied.
-                _hitFlashBaseColor = Sprite.color;
-            }
+                _hitFlashBaseColor = _displayColor;  // capture the real tint to restore to
             else
-            {
-                // Flash already running → stop it but KEEP _hitFlashBaseColor
-                // so we don't accidentally capture "white".
-                StopCoroutine(_hitFlashCoroutine);
-            }
+                StopCoroutine(_hitFlashCoroutine);   // keep the existing _hitFlashBaseColor
 
             _hitFlashCoroutine = StartCoroutine(HitFlashCoroutine());
         }
 
-        /// <summary>
-        /// Coroutine: turn sprite white, wait ~0.08s, restore base color.
-        /// </summary>
         private IEnumerator HitFlashCoroutine()
         {
             const float flashDuration = 0.08f;
 
-            // Turn white (full alpha so the flash is visible).
-            Sprite.color = Color.white;
+            PushColor(Color.white);
 
-            // Accumulate deltaTime (frame-rate independent, WebGL-safe).
+            // Frame-rate-independent wait (G5).
             float elapsed = 0f;
             while (elapsed < flashDuration)
             {
@@ -212,46 +251,41 @@ namespace GoblinSiege.Units
                 yield return null;
             }
 
-            // Restore to the color we captured BEFORE flashing, so we don't
-            // clobber the human's Alert tint (T2) or any other dynamic tint.
-            Sprite.color = _hitFlashBaseColor;
-
-            // Clear handle so next hit knows no flash is active.
+            PushColor(_hitFlashBaseColor);
             _hitFlashCoroutine = null;
+        }
+
+        /// <summary>
+        /// Pushes a color onto this single renderer via MaterialPropertyBlock
+        /// (no material allocation — G3). Sets both Standard and URP color slots.
+        /// </summary>
+        private void PushColor(Color c)
+        {
+            if (BodyRenderer == null) return;
+            BodyRenderer.GetPropertyBlock(_mpb);
+            _mpb.SetColor(ColorId, c);
+            _mpb.SetColor(BaseColorId, c);
+            BodyRenderer.SetPropertyBlock(_mpb);
         }
 
         protected virtual void Die()
         {
-            // ─────────────────────────────────────────────────────────────────
-            // CHANGE C (T4): Death-pop for "kills feel like kills".
-            //
-            // IMPORTANT: Fire OnDied FIRST so RaidManager/alarm/score logic
-            // reacts immediately (before we start the visual pop). This keeps
-            // existing game-logic timing intact.
-            // ─────────────────────────────────────────────────────────────────
+            // Fire OnDied FIRST so RaidManager/alarm/score logic reacts immediately,
+            // before the visual pop (keeps existing game-logic timing intact).
             OnDied?.Invoke(this);
 
-            // ─────────────────────────────────────────────────────────────────
-            // Start the death-pop coroutine: shrink to zero over ~0.12s, then
-            // deactivate the GameObject. Deactivating is safe — nothing reuses
-            // dead unit instances; Squad and GarrisonSpawner always Instantiate
-            // fresh units. If the object is destroyed mid-coroutine, Unity
-            // automatically stops the coroutine (no NRE risk).
-            // ─────────────────────────────────────────────────────────────────
             StartCoroutine(DeathPopCoroutine());
         }
 
         /// <summary>
-        /// Coroutine: scale down to zero over ~0.12s, then deactivate.
+        /// Death-pop: shrink to zero over ~0.12s then deactivate. Works identically
+        /// in 3D (localScale is a Vector3 either way). Frame-rate independent (G5).
         /// </summary>
         private IEnumerator DeathPopCoroutine()
         {
             const float popDuration = 0.12f;
 
-            // Capture the starting scale at coroutine start.
             Vector3 startScale = transform.localScale;
-
-            // Accumulate deltaTime for frame-rate-independent lerp.
             float elapsed = 0f;
             while (elapsed < popDuration)
             {
@@ -261,11 +295,7 @@ namespace GoblinSiege.Units
                 yield return null;
             }
 
-            // Ensure final scale is exactly zero (floating-point safety).
             transform.localScale = Vector3.zero;
-
-            // Deactivate the GameObject. This is the "deactivate as today"
-            // behavior — previously corpses sat inert; now they vanish cleanly.
             gameObject.SetActive(false);
         }
 

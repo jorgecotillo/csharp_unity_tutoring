@@ -9,7 +9,7 @@ namespace GoblinSiege.Player
     /// once-per-raid "Warhorn" — the player's single safety valve that drops the alarm.
     /// NEW INPUT SYSTEM ONLY: all input flows through a PlayerInput component's actions.
     /// </summary>
-    [RequireComponent(typeof(Rigidbody2D))]
+    [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(PlayerInput))]
     public class WarlordController : MonoBehaviour
     {
@@ -17,7 +17,7 @@ namespace GoblinSiege.Player
         [SerializeField] private float warhornAlarmReduction = 10f;
         [SerializeField] private AlarmSystem alarm;
 
-        private Rigidbody2D _body;
+        private Rigidbody _body;
         private PlayerInput _input;
         private InputAction _moveAction;
         private InputAction _warhornAction;
@@ -30,9 +30,15 @@ namespace GoblinSiege.Player
 
         private void Awake()
         {
-            _body = GetComponent<Rigidbody2D>();
-            _body.gravityScale = 0f;
-            _body.freezeRotation = true;
+            // 3D MIGRATION: the hero body is now a 3D Rigidbody on the flat XZ plane.
+            // Same constraints as every Unit (gravity off, Y position frozen, no
+            // tipping; yaw allowed for facing) so the Warlord glides on the board.
+            _body = GetComponent<Rigidbody>();
+            _body.useGravity = false;
+            _body.constraints = RigidbodyConstraints.FreezePositionY
+                              | RigidbodyConstraints.FreezeRotationX
+                              | RigidbodyConstraints.FreezeRotationZ;
+            _body.interpolation = RigidbodyInterpolation.Interpolate;
             _input = GetComponent<PlayerInput>();
         }
 
@@ -68,9 +74,20 @@ namespace GoblinSiege.Player
 
         private void FixedUpdate()
         {
-            _body.linearVelocity = _moveInput.sqrMagnitude > 0.01f
-                ? _moveInput.normalized * moveSpeed
-                : Vector2.zero;
+            // WASD/arrows give a 2D input vector; map it to XZ world velocity
+            // (input.x → world X, input.y → world Z). All motion is in FixedUpdate
+            // and scaled by moveSpeed only — frame-rate independent (G5).
+            if (_moveInput.sqrMagnitude > 0.01f)
+            {
+                Vector2 dir = _moveInput.normalized;
+                _body.linearVelocity = new Vector3(dir.x, 0f, dir.y) * moveSpeed;
+                // Cheap yaw-only facing toward travel direction.
+                _body.MoveRotation(Quaternion.LookRotation(new Vector3(dir.x, 0f, dir.y), Vector3.up));
+            }
+            else
+            {
+                _body.linearVelocity = Vector3.zero;
+            }
         }
     }
 }

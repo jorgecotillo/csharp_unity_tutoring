@@ -22,6 +22,25 @@ namespace GoblinSiege.Units
         public static void Clear() => Units.Clear();
 
         // ═══════════════════════════════════════════════════════════════════
+        // FlatSqr — XZ-plane squared distance (3D_MIGRATION_SPEC G2)
+        // ═══════════════════════════════════════════════════════════════════
+        // ALL targeting/range/proximity math in the game runs through this helper
+        // so vertical offset is IGNORED. After the 3D flip, units rest at different
+        // Y heights (a 1.8m human capsule vs a 1.1m goblin), and props/ground sit at
+        // various Y. If we used full 3D distance, a tall model would read as
+        // "farther away" than a short one standing in the same spot — breaking
+        // attack ranges, loot radii, and the extraction check. Zeroing the Y delta
+        // keeps every distance purely on the flat board, exactly as 2D behaved.
+        // ═══════════════════════════════════════════════════════════════════
+        /// <summary>Squared distance between two points on the XZ plane (Y ignored).</summary>
+        public static float FlatSqr(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x;
+            float dz = a.z - b.z;
+            return dx * dx + dz * dz;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
         // FindNearestEnemy — INTENTIONALLY UNCHANGED (T5)
         // ═══════════════════════════════════════════════════════════════════
         // This method finds the nearest unit on the OPPOSING team. Humans use
@@ -37,13 +56,13 @@ namespace GoblinSiege.Units
         {
             Unit best = null;
             float bestSqr = float.MaxValue;
-            Vector2 from = self.transform.position;
+            Vector3 from = self.transform.position;
 
             for (int i = 0; i < Units.Count; i++)
             {
                 Unit u = Units[i];
                 if (u == null || !u.IsAlive || u.Team == self.Team) continue;
-                float sqr = ((Vector2)u.transform.position - from).sqrMagnitude;
+                float sqr = FlatSqr(u.transform.position, from);
                 if (sqr < bestSqr)
                 {
                     bestSqr = sqr;
@@ -114,7 +133,7 @@ namespace GoblinSiege.Units
         // compile-legal way.
         // ═══════════════════════════════════════════════════════════════════
         /// <summary>Nearest living goblin to a world position, or null.</summary>
-        public static Unit FindNearestGoblin(Vector2 from)
+        public static Unit FindNearestGoblin(Vector3 from)
         {
             Unit best = null;
             float bestSqr = float.MaxValue;
@@ -131,7 +150,7 @@ namespace GoblinSiege.Units
                 // ───────────────────────────────────────────────────────────
                 if (u is INonObjectiveRaider) continue;
 
-                float sqr = ((Vector2)u.transform.position - from).sqrMagnitude;
+                float sqr = FlatSqr(u.transform.position, from);
                 if (sqr < bestSqr)
                 {
                     bestSqr = sqr;

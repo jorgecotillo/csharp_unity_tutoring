@@ -64,7 +64,8 @@ namespace GoblinSiege.Systems
         {
             Unit nearest = CombatRegistry.FindNearestGoblin(transform.position);
             if (nearest is not GoblinUnit g || !g.IsSapper) return null;
-            float sqr = ((Vector2)g.transform.position - (Vector2)transform.position).sqrMagnitude;
+            // XZ-plane breach range (G2).
+            float sqr = CombatRegistry.FlatSqr(g.transform.position, transform.position);
             return sqr <= breachRadius * breachRadius ? g : null;
         }
 

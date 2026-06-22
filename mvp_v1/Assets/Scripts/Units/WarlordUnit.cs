@@ -69,8 +69,13 @@ namespace GoblinSiege.Units
     ///   2. Receives damage via IDamageable (inherited from Unit).
     ///   3. Fires OnDied when HP reaches zero, which RaidManager listens to.
     ///   4. Implements INonObjectiveRaider so loot/extraction ignore it.
+    ///
+    /// 3D MIGRATION: the RequireComponent is now a 3D <see cref="Rigidbody"/>
+    /// (was Rigidbody2D). The empty FixedUpdate override below is unchanged and is
+    /// STILL REQUIRED — it disables the base auto-chase so WarlordController retains
+    /// full control of the hero on the XZ plane.
     /// </remarks>
-    [RequireComponent(typeof(Rigidbody2D))]
+    [RequireComponent(typeof(Rigidbody))]
     public class WarlordUnit : Unit, INonObjectiveRaider
     {
         // ═══════════════════════════════════════════════════════════════════

@@ -104,17 +104,33 @@ namespace GoblinSiege.Player
         private void OnOrder(InputAction.CallbackContext _)
         {
             if (_selection.Count == 0 || worldCamera == null) return;
-            Vector2 world = PointerWorld();
+            if (!TryPointerGround(out Vector3 world)) return;
             for (int i = 0; i < _selection.Count; i++)
                 if (_selection[i] != null && !_selection[i].IsDestroyed)
                     _selection[i].OrderMoveTo(world);
         }
 
-        private Vector2 PointerWorld()
+        // ─────────────────────────────────────────────────────────────────────
+        // TryPointerGround — screen pointer → XZ ground point (3D_MIGRATION §Phase B)
+        // ─────────────────────────────────────────────────────────────────────
+        // The old 2D code used Camera.ScreenToWorldPoint, which only makes sense for
+        // an orthographic top-down camera. Now the camera is a TILTED perspective
+        // RTS cam (G1), so we cast a ray from the pointer INTO the scene and find
+        // where it meets the flat ground.
+        //
+        // We intersect a MATH Plane (Vector3.up through the origin, i.e. y = 0)
+        // rather than a physics collider — no ground collider required, allocation-
+        // free, and it always returns the exact XZ point the player clicked (G2).
+        // ─────────────────────────────────────────────────────────────────────
+        private bool TryPointerGround(out Vector3 world)
         {
+            world = Vector3.zero;
             Vector2 screen = _pointAction.ReadValue<Vector2>();
-            Vector3 w = worldCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -worldCamera.transform.position.z));
-            return new Vector2(w.x, w.y);
+            Ray ray = worldCamera.ScreenPointToRay(screen);
+            Plane ground = new Plane(Vector3.up, Vector3.zero);
+            if (!ground.Raycast(ray, out float enter)) return false;
+            world = ray.GetPoint(enter);
+            return true;
         }
     }
 }

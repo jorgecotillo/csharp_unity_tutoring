@@ -3,6 +3,7 @@ using GoblinSiege.Core;
 using GoblinSiege.Player;
 using GoblinSiege.Systems;
 using GoblinSiege.Units;
+using GoblinSiege.Visual;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -11,18 +12,30 @@ namespace GoblinSiege.Bootstrap
 {
     /// <summary>
     /// ONE-CLICK PLAYABLE DEMO. Drop this on an empty GameObject in an empty scene and press Play.
-    /// It builds the entire raid in code — camera, sprites, prefabs, systems, the Warlord + squads,
-    /// loot caches, gates, defenders, the new Input System bindings, and a minimal HUD —
-    /// with no manual scene/prefab authoring. Lets you playtest the loop before making real art.
+    /// It builds the entire raid in code — a tilted 3D RTS camera, dusk lighting, ground, the
+    /// systems, the Warlord + squads, loot caches, gates, defenders, the new Input System
+    /// bindings, and a minimal HUD — with no manual scene/prefab authoring.
+    ///
+    /// 3D MIGRATION (3D_MIGRATION_SPEC Phase B): this used to set up an ORTHOGRAPHIC top-down
+    /// camera and build flat SpriteRenderer squares. It now builds:
+    ///   • a TILTED PERSPECTIVE RTS camera (~58° pitch) looking down the XZ board (G1),
+    ///   • a warm DIRECTIONAL "dusk" light + ambient so the 3D primitives read clearly,
+    ///   • every visual through <see cref="VisualLibrary"/> keys (primitive fallback now,
+    ///     real art prefabs later with ZERO code changes — the art seam, §2),
+    ///   • all positions mapped 2D (x,y) → 3D (x,0,y) so north = +Z, south = −Z.
+    /// The HUD, onboarding banner, threshold callouts and screen-pulse are unchanged.
     ///
     /// Controls: WASD/Arrows move the Warlord. 1/2/3 select a squad, ` selects all,
-    /// right-click orders them, H sounds the Warhorn (drops alarm once).
+    /// right-click orders them (raycast onto the ground), H sounds the Warhorn.
     /// </summary>
     public class RaidBootstrap : MonoBehaviour
     {
-        [Header("Play area / camera")]
-        [SerializeField] private float cameraSize = 11f;
-        [SerializeField] private Vector2 cameraCenter = new(0f, 8f);
+        [Header("Camera (tilted RTS — GUARDRAIL G1)")]
+        [Tooltip("World position of the perspective camera (raised + pulled south).")]
+        [SerializeField] private Vector3 cameraPosition = new(0f, 24f, -9f);
+        [Tooltip("Downward pitch in degrees (~50–60 keeps the whole board readable).")]
+        [SerializeField] private float cameraPitch = 58f;
+        [SerializeField] private float cameraFov = 52f;
 
         /// <summary>
         /// AUTO-START: with no setup at all, just press Play. Unity calls this after the
@@ -37,7 +50,6 @@ namespace GoblinSiege.Bootstrap
             go.AddComponent<RaidBootstrap>();
         }
 
-        private Sprite _sprite;
         private InputActionAsset _inputAsset;
         private RaidManager _raid;
         private AlarmSystem _alarm;
@@ -60,6 +72,7 @@ namespace GoblinSiege.Bootstrap
         private Image _screenPulseOverlay;
 
         // Embedded starter raid (mirrors Data/Raids/raid-01.json) so no Resources load is needed.
+        // Positions are JSON [x, y]; RaidManager maps them to world (x, 0, y).
         private const string RaidJson = @"{
             ""id"": 1, ""name"": ""Thornbrook Hamlet"", ""act"": 1,
             ""quota"": 100, ""alarmFillPerSecond"": 0.8,
@@ -78,10 +91,11 @@ namespace GoblinSiege.Bootstrap
 
         private void Start()
         {
-            _sprite = MakeUnitSprite();
             _inputAsset = BuildInputAsset();
 
             SetupCamera();
+            SetupLighting();
+            SetupGround();
 
             // --- Systems live on one child GameObject ---
             var sysGo = new GameObject("Systems");
@@ -90,43 +104,37 @@ namespace GoblinSiege.Bootstrap
             _quota = sysGo.AddComponent<QuotaSystem>();
             var garrison = sysGo.AddComponent<GarrisonSpawner>();
 
-            // --- Extraction zone (south edge) ---
-            // T1: Blue translucent "goal" zone, visually distinct from green goblins,
-            // gold caches, brown gates, and red humans. Blue = "go here to win."
-            var extractionGo = MakeSpriteObject("Extraction", new Vector2(0f, 0f),
-                new Vector3(5f, 2.5f, 1f), new Color(0.2f, 0.5f, 0.95f, 0.3f), sorting: -5);
+            // --- Extraction zone (south edge, XZ origin) ---
+            // G4: a BLUE translucent "goal" marker, distinct from green goblins, gold
+            // caches, brown gates and red humans. Spawned through the art seam so a real
+            // extraction prop (Phase D tree-line) can replace it with no code change.
+            GameObject extractionGo = VisualLibrary.Spawn(VisualLibrary.KeyExtraction,
+                new Vector3(0f, 0.02f, 0f), Quaternion.identity, transform);
             var extraction = extractionGo.AddComponent<ExtractionZone>();
-            // T1 polish: Gentle pulse draws attention to the goal zone without being distracting.
+            // T1 polish: gentle pulse draws the eye to the goal without distracting.
             extractionGo.AddComponent<ZonePulse>();
 
-            // --- Template "prefabs" (kept inactive) ---
-            GoblinUnit goblinPrefab = MakeGoblinPrefab();
-            HumanUnit humanPrefab = MakeHumanPrefab();
-            LootCache cachePrefab = MakeCachePrefab();
-            Gate gatePrefab = MakeGatePrefab();
-
-            // --- Garrison spawn points (top of the map) ---
+            // --- Garrison spawn points (north / +Z) ---
             Transform[] spawns =
             {
-                MakePoint("Spawn0", new Vector2(0f, 16f)),
-                MakePoint("Spawn1", new Vector2(-5f, 14f)),
-                MakePoint("Spawn2", new Vector2(5f, 14f))
+                MakePoint("Spawn0", new Vector3(0f, 0f, 16f)),
+                MakePoint("Spawn1", new Vector3(-5f, 0f, 14f)),
+                MakePoint("Spawn2", new Vector3(5f, 0f, 14f))
             };
-            garrison.SetSpawnAssets(humanPrefab, spawns);
+            garrison.SetSpawnAssets(spawns);
 
-            Transform deploy = MakePoint("Deploy", new Vector2(0f, 1f));
+            Transform deploy = MakePoint("Deploy", new Vector3(0f, 0f, 1f));
 
-            // --- RaidManager: inject everything, which starts the raid ---
+            // --- RaidManager: inject everything (no prefabs — visuals via VisualLibrary) ---
             var raidGo = new GameObject("RaidManager");
             raidGo.transform.SetParent(transform);
             _raid = raidGo.AddComponent<RaidManager>();
-            _raid.Inject(RaidJson, _alarm, _quota, garrison, extraction,
-                goblinPrefab, cachePrefab, gatePrefab, deploy);
+            _raid.Inject(RaidJson, _alarm, _quota, garrison, extraction, deploy);
 
             // --- A few static defenders so there's combat before reinforcements ---
-            SpawnDefender(humanPrefab, HumanType.Militia, new Vector2(-3f, 9.5f));
-            SpawnDefender(humanPrefab, HumanType.Militia, new Vector2(3f, 9.5f));
-            SpawnDefender(humanPrefab, HumanType.Militia, new Vector2(0f, 12.5f));
+            SpawnDefender(HumanType.Militia, new Vector3(-3f, 0f, 9.5f));
+            SpawnDefender(HumanType.Militia, new Vector3(3f, 0f, 9.5f));
+            SpawnDefender(HumanType.Militia, new Vector3(0f, 0f, 12.5f));
 
             // --- Player (Warlord hero + squad commander share one PlayerInput) ---
             BuildPlayer();
@@ -136,48 +144,55 @@ namespace GoblinSiege.Bootstrap
             HookHud();
         }
 
-        // ---------------------------------------------------------------- assets
-
-        private static Sprite MakeUnitSprite()
-        {
-            var tex = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            tex.SetPixel(0, 0, Color.white);
-            tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
-        }
+        // ---------------------------------------------------------------- scene/camera/light
 
         private void SetupCamera()
         {
+            // GUARDRAIL G1: a TILTED TOP-DOWN PERSPECTIVE camera — NOT behind-the-shoulder
+            // or first-person. Raised high and pulled south (−Z) so it looks down the board
+            // toward the village (+Z); the whole playfield stays readable at a glance.
             Camera cam = Camera.main;
             if (cam == null)
             {
                 var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
                 cam = camGo.AddComponent<Camera>();
             }
-            cam.orthographic = true;
-            cam.orthographicSize = cameraSize;
-            cam.transform.SetPositionAndRotation(
-                new Vector3(cameraCenter.x, cameraCenter.y, -10f), Quaternion.identity);
+            cam.orthographic = false;                 // perspective (was orthographic in 2D)
+            cam.fieldOfView = cameraFov;
+            cam.farClipPlane = 250f;
+            cam.transform.SetPositionAndRotation(cameraPosition, Quaternion.Euler(cameraPitch, 0f, 0f));
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.55f, 0.5f, 0.42f);
+            cam.backgroundColor = new Color(0.20f, 0.17f, 0.24f); // deep dusk sky
         }
 
-        // ---------------------------------------------------------------- factories
-
-        private GameObject MakeSpriteObject(string name, Vector2 pos, Vector3 scale, Color color, int sorting = 0)
+        private void SetupLighting()
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(transform);
-            go.transform.position = pos;
-            go.transform.localScale = scale;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = _sprite;
-            sr.color = color;
-            sr.sortingOrder = sorting;
-            return go;
+            // A single warm DIRECTIONAL "dusk" sun so the 3D primitives have shape and the
+            // role tints stay readable (G4). Plus a flat ambient fill so shadowed sides of
+            // units aren't pure black.
+            var lightGo = new GameObject("Sun (Directional)");
+            lightGo.transform.SetParent(transform);
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.color = new Color(1.0f, 0.82f, 0.62f); // warm dusk
+            light.intensity = 1.15f;
+            light.shadows = LightShadows.Soft;
+            light.transform.rotation = Quaternion.Euler(50f, -35f, 0f);
+
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.34f, 0.32f, 0.40f);
         }
 
-        private Transform MakePoint(string name, Vector2 pos)
+        private void SetupGround()
+        {
+            // Big flat ground via the art seam (GroundField key). Its top sits at y≈0, the
+            // plane the order-raycast (SquadCommander) intersects. Phase D will split this
+            // into field + village zones; for Phase B one field plane is enough.
+            VisualLibrary.Spawn(VisualLibrary.KeyGroundField,
+                new Vector3(0f, -0.1f, 6f), Quaternion.identity, transform);
+        }
+
+        private Transform MakePoint(string name, Vector3 pos)
         {
             var go = new GameObject(name);
             go.transform.SetParent(transform);
@@ -185,58 +200,13 @@ namespace GoblinSiege.Bootstrap
             return go.transform;
         }
 
-        private GoblinUnit MakeGoblinPrefab()
+        private void SpawnDefender(HumanType type, Vector3 post)
         {
-            var go = new GameObject("GoblinPrefab");
-            go.SetActive(false);
-            go.transform.localScale = Vector3.one * 0.55f;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = _sprite;
-            sr.color = new Color(0.35f, 0.8f, 0.3f);
-            sr.sortingOrder = 2;
-            return go.AddComponent<GoblinUnit>(); // RequireComponent adds Rigidbody2D
-        }
-
-        private HumanUnit MakeHumanPrefab()
-        {
-            var go = new GameObject("HumanPrefab");
-            go.SetActive(false);
-            go.transform.localScale = Vector3.one * 0.55f;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = _sprite;
-            sr.color = new Color(0.85f, 0.25f, 0.25f);
-            sr.sortingOrder = 2;
-            return go.AddComponent<HumanUnit>();
-        }
-
-        private LootCache MakeCachePrefab()
-        {
-            var go = new GameObject("CachePrefab");
-            go.SetActive(false);
-            go.transform.localScale = Vector3.one * 0.8f;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = _sprite;
-            sr.color = new Color(0.95f, 0.8f, 0.2f);
-            sr.sortingOrder = 1;
-            return go.AddComponent<LootCache>();
-        }
-
-        private Gate MakeGatePrefab()
-        {
-            var go = new GameObject("GatePrefab");
-            go.SetActive(false);
-            go.transform.localScale = new Vector3(3f, 0.6f, 1f);
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = _sprite;
-            sr.color = new Color(0.5f, 0.35f, 0.2f);
-            sr.sortingOrder = 1;
-            return go.AddComponent<Gate>();
-        }
-
-        private void SpawnDefender(HumanUnit prefab, HumanType type, Vector2 post)
-        {
-            HumanUnit h = Instantiate(prefab, post, Quaternion.identity, transform);
-            h.gameObject.SetActive(true);
+            // ART SEAM: human visual via VisualLibrary("Human"); gameplay attached here.
+            // No SetVisualTint — HumanUnit.Init enters Guard which sets its own dim-red
+            // tint (G4). Guard/Alert color is FSM-driven.
+            GameObject go = VisualLibrary.Spawn(VisualLibrary.KeyHuman, post, Quaternion.identity, transform);
+            HumanUnit h = go.GetComponent<HumanUnit>() ?? go.AddComponent<HumanUnit>();
             h.Init(type, post);
             h.OnDied += _ => _alarm.Add(Balance.AlarmPerHumanKilled);
         }
@@ -269,21 +239,13 @@ namespace GoblinSiege.Bootstrap
 
         private void BuildPlayer()
         {
-            // Built inactive so Awake/OnEnable run only AFTER PlayerInput.actions is assigned.
-            var go = new GameObject("Warlord");
+            // ART SEAM: the hero visual comes from VisualLibrary("Warlord") — a bigger cyan
+            // capsule fallback now, or a real prefab later. Built INACTIVE so PlayerInput.actions
+            // is assigned before any OnEnable runs, then activated.
+            GameObject go = VisualLibrary.Spawn(VisualLibrary.KeyWarlord,
+                new Vector3(0f, 0f, 1f), Quaternion.identity, transform);
+            go.name = "Warlord";
             go.SetActive(false);
-            go.transform.SetParent(transform);
-            go.transform.position = new Vector3(0f, 1f, 0f);
-            // T1: Warlord is the unique hero unit — cyan color + larger scale makes it
-            // instantly distinct from the smaller green goblins (0.55 scale, 0.35/0.8/0.3).
-            go.transform.localScale = Vector3.one * 1.0f;
-
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = _sprite;
-            // T1: Bright cyan stands out against green goblins, red humans, gold caches.
-            // The player should always know where their hero is on screen.
-            sr.color = new Color(0.2f, 0.95f, 0.95f);
-            sr.sortingOrder = 3;
 
             var pi = go.AddComponent<PlayerInput>();
             pi.actions = _inputAsset;
@@ -299,13 +261,14 @@ namespace GoblinSiege.Bootstrap
             // T5: Make the Warlord a real combat target that can die and end the raid.
             // WarlordUnit is a Unit subclass on Team.Goblin (humans target it via
             // FindNearestEnemy) but excluded from loot/extraction/win (INonObjectiveRaider).
-            // This creates the "standout mechanic" tension: the Warlord leads from the front
-            // but can fall, causing defeat. Position the hero carefully!
             var warlordUnit = go.AddComponent<WarlordUnit>();
-            warlordUnit.Init();                                   // 50 HP, 0 dmg/speed, Goblin team
-            warlordUnit.OnDied += _ => _raid.NotifyWarlordDown(); // Warlord falls -> LostWarlordDown (idempotent)
 
-            go.SetActive(true);
+            go.SetActive(true); // Awake/OnEnable run now, with actions assigned
+
+            warlordUnit.Init();                                       // 50 HP, 0 dmg/speed, Goblin team
+            warlordUnit.SetVisualTint(VisualLibrary.WarlordCyan);     // G4: warlord is cyan + bigger
+            warlordUnit.OnDied += _ => _raid.NotifyWarlordDown();     // Warlord falls -> LostWarlordDown
+
             _inputAsset.FindActionMap("Player").Enable();
         }
 
@@ -345,21 +308,13 @@ namespace GoblinSiege.Bootstrap
             // ═══════════════════════════════════════════════════════════════════
             // T6: ONBOARDING — Goal Banner (auto-fades) + Controls Card (persistent)
             // ═══════════════════════════════════════════════════════════════════
-            // New players need to know: what's the goal, and how do I control this?
-            // The goal banner is prominent but fades after 5s so it doesn't distract.
-            // The controls card is small and stays visible for reference.
-
-            // Goal Banner: tells the player the victory condition in ~3 seconds of reading.
-            // Centered near top, fades out after 5 seconds so it doesn't obscure play.
             _goalBannerText = MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.5f, 0.85f),
                 "Breach the gate. Loot the quota.\nReach the BLUE zone before the alarm fills.",
                 fontSize: 22);
-            // Start the fade coroutine: wait 5s, then fade alpha 1→0 over 1s.
             StartCoroutine(FadeOutAfterDelay(_goalBannerText, delaySeconds: 5f, fadeDuration: 1f));
 
             // Controls Card: small persistent reference in bottom-left corner.
-            // Mirrors the actual bindings in BuildInputAsset (WASD, 1/2/3, `, right-click, H).
             MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.02f, 0.02f),
                 "WASD move · 1/2/3 select squad · ` select all\nRight-click order · H = Warhorn (once)",
@@ -370,27 +325,17 @@ namespace GoblinSiege.Bootstrap
             // ═══════════════════════════════════════════════════════════════════
             // T7: THRESHOLD CALLOUTS + SCREEN-PULSE OVERLAY
             // ═══════════════════════════════════════════════════════════════════
-            // These are built once (hidden/alpha=0) and driven by HookHud coroutines.
-            // The callout text appears center-screen on threshold escalation.
-            // The red overlay flashes briefly to viscerally signal danger escalation.
-
-            // Threshold Callout Text: center-screen, starts hidden (alpha 0).
-            // Driven by _alarm.OnThresholdChanged in HookHud.
             _thresholdCalloutText = MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.5f, 0.65f),
                 "",
                 fontSize: 28);
-            // Start hidden (alpha 0).
             _thresholdCalloutText.color = new Color(1f, 1f, 1f, 0f);
 
-            // Screen-Pulse Overlay: full-screen red tint that flashes on threshold step-up.
-            // CRITICAL: raycastTarget=false so it doesn't block mouse input (orders, selection).
             var pulseGo = new GameObject("ScreenPulseOverlay");
             pulseGo.transform.SetParent(canvasGo.transform, false);
             _screenPulseOverlay = pulseGo.AddComponent<Image>();
             _screenPulseOverlay.color = new Color(0.9f, 0.1f, 0.1f, 0f); // Red, start invisible.
             _screenPulseOverlay.raycastTarget = false; // DO NOT BLOCK INPUT.
-            // Stretch to fill entire canvas (anchor 0,0 to 1,1, offset zero).
             var pulseRt = _screenPulseOverlay.rectTransform;
             pulseRt.anchorMin = Vector2.zero;
             pulseRt.anchorMax = Vector2.one;
@@ -400,7 +345,6 @@ namespace GoblinSiege.Bootstrap
 
         /// <summary>
         /// T6/T7 Helper: Creates a centered Text element with flexible anchor/pivot.
-        /// Unlike MakeLabel (left-anchored for bars), this anchors to a normalized screen position.
         /// </summary>
         private Text MakeCenteredText(Transform parent, Font font, Vector2 normalizedAnchor,
             string text, int fontSize, TextAnchor anchor = TextAnchor.MiddleCenter,
@@ -415,35 +359,27 @@ namespace GoblinSiege.Bootstrap
             label.fontSize = fontSize;
             label.alignment = anchor;
             var rt = label.rectTransform;
-            // Anchor to normalized screen position (0.5, 0.5 = center, 0.5/0.85 = top-center).
             rt.anchorMin = rt.anchorMax = normalizedAnchor;
-            // Pivot defaults to center; override for corner-anchored text like controls card.
             rt.pivot = pivotAnchor ?? new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = new Vector2(600f, 80f); // Wide enough for multi-line text.
+            rt.sizeDelta = new Vector2(600f, 80f);
             return label;
         }
 
         /// <summary>
         /// T6: Coroutine that waits, then fades a Text's alpha to 0, then hides the GameObject.
-        /// Null-guarded: if the Text or its GameObject is destroyed mid-fade, exits cleanly.
+        /// Frame-rate independent (G5). Null-guarded against teardown.
         /// </summary>
         private IEnumerator FadeOutAfterDelay(Text target, float delaySeconds, float fadeDuration)
         {
-            // Wait before starting fade.
             yield return new WaitForSeconds(delaySeconds);
-
-            // Null-guard: the canvas/Text may have been destroyed if the scene changed.
             if (target == null || target.gameObject == null) yield break;
 
-            // Capture starting color and lerp alpha to 0.
             Color startColor = target.color;
             float elapsed = 0f;
             while (elapsed < fadeDuration)
             {
-                // Null-guard each iteration: object could be destroyed mid-fade.
                 if (target == null || target.gameObject == null) yield break;
-
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / fadeDuration);
                 target.color = new Color(startColor.r, startColor.g, startColor.b,
@@ -451,7 +387,6 @@ namespace GoblinSiege.Bootstrap
                 yield return null;
             }
 
-            // Final cleanup: set fully invisible and optionally disable.
             if (target != null && target.gameObject != null)
             {
                 target.color = new Color(startColor.r, startColor.g, startColor.b, 0f);
@@ -460,8 +395,7 @@ namespace GoblinSiege.Bootstrap
         }
 
         /// <summary>
-        /// T7: Shows threshold callout text with fade-in then fade-out.
-        /// Null-guarded for robustness at raid-end teardown.
+        /// T7: Shows threshold callout text with fade-in then fade-out. Null-guarded.
         /// </summary>
         private IEnumerator ShowThresholdCallout(string message, float displayDuration, float fadeDuration)
         {
@@ -470,7 +404,6 @@ namespace GoblinSiege.Bootstrap
             _thresholdCalloutText.text = message;
             _thresholdCalloutText.gameObject.SetActive(true);
 
-            // Fade in quickly (alpha 0→1 over fadeDuration/2).
             float elapsed = 0f;
             float fadeInTime = fadeDuration * 0.5f;
             while (elapsed < fadeInTime)
@@ -478,14 +411,12 @@ namespace GoblinSiege.Bootstrap
                 if (_thresholdCalloutText == null || _thresholdCalloutText.gameObject == null) yield break;
                 elapsed += Time.deltaTime;
                 float alpha = Mathf.Clamp01(elapsed / fadeInTime);
-                _thresholdCalloutText.color = new Color(1f, 1f, 0.8f, alpha); // Warm white/yellow.
+                _thresholdCalloutText.color = new Color(1f, 1f, 0.8f, alpha);
                 yield return null;
             }
 
-            // Hold at full alpha.
             yield return new WaitForSeconds(displayDuration);
 
-            // Fade out (alpha 1→0 over fadeDuration).
             elapsed = 0f;
             while (elapsed < fadeDuration)
             {
@@ -496,7 +427,6 @@ namespace GoblinSiege.Bootstrap
                 yield return null;
             }
 
-            // Final hide.
             if (_thresholdCalloutText != null && _thresholdCalloutText.gameObject != null)
             {
                 _thresholdCalloutText.color = new Color(1f, 1f, 0.8f, 0f);
@@ -504,16 +434,14 @@ namespace GoblinSiege.Bootstrap
         }
 
         /// <summary>
-        /// T7: Flashes a red full-screen overlay to viscerally signal alarm escalation.
-        /// Fades from startAlpha→0 over duration. Null-guarded.
+        /// T7: Flashes a red full-screen overlay to viscerally signal escalation. Null-guarded.
         /// </summary>
         private IEnumerator FlashScreenPulse(float startAlpha, float duration)
         {
             if (_screenPulseOverlay == null || _screenPulseOverlay.gameObject == null) yield break;
 
             float elapsed = 0f;
-            Color pulseColor = new Color(0.9f, 0.1f, 0.1f, startAlpha); // Red.
-            _screenPulseOverlay.color = pulseColor;
+            _screenPulseOverlay.color = new Color(0.9f, 0.1f, 0.1f, startAlpha);
 
             while (elapsed < duration)
             {
@@ -524,7 +452,6 @@ namespace GoblinSiege.Bootstrap
                 yield return null;
             }
 
-            // Ensure fully transparent at end.
             if (_screenPulseOverlay != null && _screenPulseOverlay.gameObject != null)
             {
                 _screenPulseOverlay.color = new Color(0.9f, 0.1f, 0.1f, 0f);
@@ -588,7 +515,6 @@ namespace GoblinSiege.Bootstrap
             };
             _alarm.OnThresholdChanged += t =>
             {
-                // Existing behavior: change bar fill color based on threshold.
                 _alarmFillImg.color = t switch
                 {
                     AlarmThreshold.Alerted => new Color(0.95f, 0.75f, 0.2f),
@@ -597,23 +523,17 @@ namespace GoblinSiege.Bootstrap
                     _ => new Color(0.3f, 0.8f, 0.3f)
                 };
 
-                // T7: Threshold callouts + screen-pulse — "feel the escalation."
-                // Each step-up shows a center-screen warning and flashes the screen red.
-                // Unaware threshold (initial state) shows nothing.
-                // These coroutines are null-guarded for robustness at raid-end teardown.
                 string calloutMessage = t switch
                 {
                     AlarmThreshold.Alerted => "ALERTED — they've seen you",
                     AlarmThreshold.Mobilized => "MOBILIZED — the garrison musters",
                     AlarmThreshold.FullSally => "FULL SALLY — RUN!",
-                    _ => null // Unaware: no callout.
+                    _ => null
                 };
 
                 if (!string.IsNullOrEmpty(calloutMessage))
                 {
-                    // Show callout text: fade in, display ~1.5s, fade out over ~0.5s.
                     StartCoroutine(ShowThresholdCallout(calloutMessage, displayDuration: 1.5f, fadeDuration: 0.5f));
-                    // Flash red overlay: alpha 0.4→0 over 0.4s for a brief visceral "danger" pulse.
                     StartCoroutine(FlashScreenPulse(startAlpha: 0.4f, duration: 0.4f));
                 }
             };
@@ -622,7 +542,6 @@ namespace GoblinSiege.Bootstrap
                 _resultText.text = result switch
                 {
                     RaidResult.Won => $"VICTORY\nYou took what you needed and lived to spend it.\nLooted {looted} / {quota}  ·  Surplus {surplus}",
-                    // T5: Warlord death ends the raid — the unique hero mechanic has real stakes.
                     RaidResult.LostWarlordDown => "DEFEAT\nThe warlord fell. A leaderless warband scatters.",
                     RaidResult.LostSquadWipe => "DEFEAT\nThe warband is broken.",
                     RaidResult.LostAlarmMaxed => "DEFEAT\nYou reached for one more chest. The horns never stopped.",
@@ -634,42 +553,27 @@ namespace GoblinSiege.Bootstrap
         // ═══════════════════════════════════════════════════════════════════════════
         // T1: ZonePulse — Gentle extraction zone pulse for visual polish
         // ═══════════════════════════════════════════════════════════════════════════
-        // A tiny nested MonoBehaviour that oscillates the attached GameObject's
-        // localScale around its original value using Mathf.Sin(Time.time).
-        // This draws player attention to the "goal zone" without being distracting.
+        // Oscillates the attached GameObject's localScale around its original value.
+        // WebGL-SAFE: uses only Update(), Mathf, Time and Transform.
         //
-        // WHY A NESTED CLASS?
-        // ZonePulse is only used by RaidBootstrap for the extraction zone. Putting it
-        // inside the class keeps related code together and avoids polluting the global
-        // namespace. Unity allows nested MonoBehaviours (they just can't be serialized
-        // in the Inspector, which we don't need here — it's added purely via code).
-        //
-        // WebGL-SAFE: uses only Update(), Mathf, Time, and Transform — no threading,
-        // no System.IO, no native plugins.
+        // GUARDRAIL G5: the oscillation is a function of Time.time (absolute clock),
+        // NOT a per-frame accumulator — so the pulse speed is identical at any frame
+        // rate. No raw per-frame increments.
         // ═══════════════════════════════════════════════════════════════════════════
         private class ZonePulse : MonoBehaviour
         {
-            // Captured on Start so we oscillate around the original scale.
             private Vector3 _baseScale;
-
-            // Pulse parameters: amplitude ~5% of base scale, gentle frequency.
             private const float Amplitude = 0.05f;  // ±5% scale variation
-            private const float Frequency = 2f;     // Cycles per second (2 Hz = gentle pulse)
+            private const float Frequency = 2f;     // cycles per second
 
             private void Start()
             {
-                // Capture the base scale set by MakeSpriteObject (5, 2.5, 1 for extraction).
-                // Null-safe: if transform is somehow null, default to Vector3.one.
                 _baseScale = transform != null ? transform.localScale : Vector3.one;
             }
 
             private void Update()
             {
-                // Null-guard: if transform is destroyed, do nothing.
                 if (transform == null) return;
-
-                // Oscillate scale: sin(time * frequency) gives -1 to +1, scaled by amplitude.
-                // At t=0, sin=0, so scale = base. Over time it pulses ±5%.
                 float pulse = 1f + Amplitude * Mathf.Sin(Time.time * Frequency * Mathf.PI * 2f);
                 transform.localScale = _baseScale * pulse;
             }

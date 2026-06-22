@@ -18,7 +18,8 @@ namespace GoblinSiege.Systems
         {
             Unit nearest = CombatRegistry.FindNearestGoblin(transform.position);
             if (nearest == null) return false;
-            return ((Vector2)nearest.transform.position - (Vector2)transform.position).sqrMagnitude
+            // XZ-plane check (G2): only flat-board distance decides the win.
+            return CombatRegistry.FlatSqr(nearest.transform.position, transform.position)
                    <= radius * radius;
         }
 
