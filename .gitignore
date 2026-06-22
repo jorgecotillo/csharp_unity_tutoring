@@ -46,3 +46,37 @@ crashlytics-build.properties
 # OS files
 .DS_Store
 Thumbs.db
+
+# ---------------------------------------------------------------
+# IDE solution files (new XML-based format)
+# ---------------------------------------------------------------
+*.slnx
+
+# ---------------------------------------------------------------
+# Unity crash-recovery scenes (auto-generated)
+# ---------------------------------------------------------------
+**/[Aa]ssets/_Recovery/
+**/[Aa]ssets/_Recovery.meta
+
+# ---------------------------------------------------------------
+# Google External Dependency Manager (EDM4U) - reimportable plugin
+# ---------------------------------------------------------------
+**/[Aa]ssets/MobileDependencyResolver/
+**/[Aa]ssets/MobileDependencyResolver.meta
+
+# ---------------------------------------------------------------
+# Unity IAP / Billing auto-generated catalog
+# ---------------------------------------------------------------
+**/[Aa]ssets/Resources/BillingMode.json
+**/[Aa]ssets/Resources/BillingMode.json.meta
+**/[Aa]ssets/Resources.meta
+
+# ---------------------------------------------------------------
+# Unity Package Manager local settings (regenerated per machine)
+# ---------------------------------------------------------------
+**/[Pp]roject[Ss]ettings/PackageManagerSettings.asset
+
+# ---------------------------------------------------------------
+# PaladinSetup diagnostic log (editor build trace, machine-local)
+# ---------------------------------------------------------------
+**/PaladinSetup.log

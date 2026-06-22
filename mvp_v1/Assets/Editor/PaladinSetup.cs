@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.IO;
 using System.Linq;
 using GoblinSiege.Units;
 using UnityEditor;
@@ -54,6 +55,26 @@ namespace GoblinSiege.EditorTools
         private const string Controller   = Folder + "/PaladinAnimator.controller";
         private const string PrefabPath   = "Assets/Resources/Prefabs/Human.prefab";
 
+        // Diagnostic log file written OUTSIDE Assets/ (so Unity doesn't import it).
+        // Resolves to mvp_v1/PaladinSetup.log — readable from outside the editor so a
+        // build failure can be diagnosed without copy-pasting the Console.
+        private static readonly string LogPath =
+            Path.GetFullPath(Path.Combine(Application.dataPath, "..", "PaladinSetup.log"));
+
+        // Append one timestamped line to the diagnostic log (best-effort, never throws).
+        private static void Log(string msg)
+        {
+            try { File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss}  {msg}{Environment.NewLine}"); }
+            catch { /* logging must never break the build */ }
+        }
+
+        // Start a fresh log for this build attempt.
+        private static void ResetLog(string header)
+        {
+            try { File.WriteAllText(LogPath, $"=== {header} @ {DateTime.Now:yyyy-MM-dd HH:mm:ss} ==={Environment.NewLine}"); }
+            catch { /* ignore */ }
+        }
+
         // ── Tuning ────────────────────────────────────────────────────────────────
         private const float TargetHeight = 1.8f;  // Paladin ≈ 1.8 m next to ~1 m goblins
         private const float WalkThreshold = 0.1f;  // Speed above which we leave Idle
@@ -84,41 +105,70 @@ namespace GoblinSiege.EditorTools
             // Source FBX not imported yet — try again on the next reload.
             if (AssetDatabase.LoadAssetAtPath<GameObject>(BaseFbx) == null) return;
 
-            SessionState.SetBool(SessionKey, true);
             try
             {
                 Build();
+                // Only mark "done for this session" on SUCCESS, so a transient
+                // import-order failure auto-retries on the next domain reload
+                // instead of being permanently skipped.
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null)
+                    SessionState.SetBool(SessionKey, true);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[PaladinSetup] Auto-build failed (use Tools ▸ Goblin Siege ▸ " +
-                               $"Build Paladin Human to retry): {e}");
+                Log($"AUTO-BUILD EXCEPTION: {e}");
+                Debug.LogError($"[PaladinSetup] Auto-build failed (see {LogPath}; or use " +
+                               $"Tools ▸ Goblin Siege ▸ Build Paladin Human to retry): {e}");
             }
         }
 
         [MenuItem("Tools/Goblin Siege/Build Paladin Human")]
         public static void Build()
         {
-            Debug.Log("[PaladinSetup] Building animated Paladin human…");
+            ResetLog("Build Paladin Human");
+            Debug.Log($"[PaladinSetup] Building animated Paladin human… (log: {LogPath})");
 
-            Avatar avatar = ConfigureBaseFbx();
-            if (avatar == null)
+            try
             {
-                Debug.LogError("[PaladinSetup] No Humanoid avatar produced from base FBX — aborting. " +
-                               "Open the base FBX ▸ Rig ▸ ensure Animation Type = Humanoid.");
-                return;
+                Log("STEP 1: ConfigureBaseFbx (Humanoid avatar + materials)…");
+                Avatar avatar = ConfigureBaseFbx();
+                if (avatar == null)
+                {
+                    Log("FAIL: No Humanoid avatar produced from base FBX. " +
+                        "Open the base FBX ▸ Rig ▸ Animation Type = Humanoid ▸ Apply, then retry.");
+                    Debug.LogError("[PaladinSetup] No Humanoid avatar produced from base FBX — aborting. " +
+                                   $"See {LogPath}. Open the base FBX ▸ Rig ▸ Animation Type = Humanoid.");
+                    return;
+                }
+                Log($"  OK avatar='{avatar.name}' isHuman={avatar.isHuman} isValid={avatar.isValid}");
+
+                Log("STEP 2: ConfigureAnimFbx Walking…");
+                AnimationClip walk = ConfigureAnimFbx(WalkFbx, avatar);
+                Log($"  walk clip = {(walk == null ? "NULL" : walk.name)}");
+                Log("STEP 2: ConfigureAnimFbx Running…");
+                AnimationClip run = ConfigureAnimFbx(RunFbx, avatar);
+                Log($"  run clip = {(run == null ? "NULL" : run.name)}");
+
+                Log("STEP 3: BuildController…");
+                AnimatorController controller = BuildController(walk, run);
+                Log($"  controller = {(controller == null ? "NULL" : controller.name)}");
+
+                Log("STEP 4: BuildPrefab…");
+                BuildPrefab(avatar, controller);
+
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+
+                bool ok = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null;
+                Log(ok ? $"DONE: prefab saved at {PrefabPath}" : $"FAIL: prefab NOT found at {PrefabPath} after build");
+                Debug.Log($"[PaladinSetup] {(ok ? "DONE" : "FAILED")}. See {LogPath}. " +
+                          "VisualLibrary key \"Human\" now spawns the animated Paladin.");
             }
-
-            AnimationClip walk = ConfigureAnimFbx(WalkFbx, avatar);
-            AnimationClip run  = ConfigureAnimFbx(RunFbx, avatar);
-
-            AnimatorController controller = BuildController(walk, run);
-            BuildPrefab(avatar, controller);
-
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log($"[PaladinSetup] DONE. Prefab at {PrefabPath} — VisualLibrary key " +
-                      $"\"Human\" now spawns the animated Paladin automatically.");
+            catch (Exception e)
+            {
+                Log($"EXCEPTION: {e}");
+                Debug.LogError($"[PaladinSetup] Build threw — see {LogPath}\n{e}");
+            }
         }
 
         // ───────────────────────────────────────────────────────────────────────
@@ -270,11 +320,12 @@ namespace GoblinSiege.EditorTools
                 AssetDatabase.CreateFolder("Assets/Resources", "Prefabs");
 
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(BaseFbx);
-            if (model == null) { Debug.LogError("[PaladinSetup] Base model failed to load."); return; }
+            if (model == null) { Debug.LogError("[PaladinSetup] Base model failed to load."); Log("  BuildPrefab FAIL: base model null"); return; }
 
             // Live, editable instance linked to the FBX (a prefab variant on save).
             var inst = (GameObject)PrefabUtility.InstantiatePrefab(model);
             inst.name = "Human";
+            Log($"  instantiated model, renderers={inst.GetComponentsInChildren<Renderer>().Length}");
 
             // ── Guarantee ~1.8 m height regardless of the FBX's file units ──────────
             // Measure the rendered AABB and scale the root so the world height is
@@ -327,7 +378,9 @@ namespace GoblinSiege.EditorTools
             indicator.Configure(ring, body);
 
             // ── Save as the deliverable prefab, then clean up the scene instance ────
-            PrefabUtility.SaveAsPrefabAsset(inst, PrefabPath);
+            Log($"  saving prefab to {PrefabPath}…");
+            PrefabUtility.SaveAsPrefabAsset(inst, PrefabPath, out bool saveOk);
+            Log($"  SaveAsPrefabAsset success={saveOk}");
             UnityEngine.Object.DestroyImmediate(inst);
         }
 
