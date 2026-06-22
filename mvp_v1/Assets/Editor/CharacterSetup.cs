@@ -346,32 +346,42 @@ namespace GoblinSiege.EditorTools
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(def.BaseFbx);
             if (model == null) { Log("    BuildPrefab FAIL: base model null"); return; }
 
-            var inst = (GameObject)PrefabUtility.InstantiatePrefab(model);
-            inst.name = def.Name;
-            Log($"    instantiated, renderers={inst.GetComponentsInChildren<Renderer>().Length}");
+            // ── ROBUST ROOT (fixes the reported MissingComponentException) ──────────
+            // We do NOT add gameplay components onto the FBX MODEL instance root:
+            // AddComponent on a freshly-instantiated / mid-import model prefab can
+            // return null (→ "no 'Rigidbody' attached" when we then touch it). Instead
+            // we build a PLAIN GameObject we fully own, add Rigidbody/collider/scripts
+            // to IT, and parent the Mixamo model as a pure VISUAL CHILD. The model
+            // keeps its Animator/skeleton; our root keeps the physics + gameplay.
+            var root = new GameObject(def.Name);
 
-            // Scale the root so the rendered AABB height == def.TargetHeight.
-            float s = 1f;
-            var rends = inst.GetComponentsInChildren<Renderer>();
+            var modelInst = (GameObject)PrefabUtility.InstantiatePrefab(model);
+            if (modelInst == null) { Log("    BuildPrefab FAIL: model instance null"); UnityEngine.Object.DestroyImmediate(root); return; }
+            modelInst.transform.SetParent(root.transform, false);
+            modelInst.transform.localPosition = Vector3.zero;
+            modelInst.transform.localRotation = Quaternion.identity;
+            Log($"    instantiated model under root, renderers={modelInst.GetComponentsInChildren<Renderer>().Length}");
+
+            // Scale the MODEL child so its rendered AABB height == def.TargetHeight
+            // (root stays at scale 1, so the collider/ring below use world metres).
+            var rends = modelInst.GetComponentsInChildren<Renderer>();
             if (rends.Length > 0)
             {
                 Bounds b = rends[0].bounds;
                 for (int i = 1; i < rends.Length; i++) b.Encapsulate(rends[i].bounds);
                 if (b.size.y > 0.001f)
-                {
-                    s = def.TargetHeight / b.size.y;
-                    inst.transform.localScale = Vector3.one * s;
-                }
+                    modelInst.transform.localScale = Vector3.one * (def.TargetHeight / b.size.y);
             }
 
-            // Animator (cosmetic; root motion OFF — physics drives movement).
-            var anim = inst.GetComponent<Animator>() ?? inst.AddComponent<Animator>();
+            // Animator stays on the MODEL (where the avatar/skeleton live). Cosmetic;
+            // root motion OFF — physics drives movement.
+            var anim = modelInst.GetComponent<Animator>() ?? modelInst.AddComponent<Animator>();
             if (anim.avatar == null) anim.avatar = avatar;
             anim.runtimeAnimatorController = controller;
             anim.applyRootMotion = false;
 
-            // Rigidbody with G2 flat-plane constraints.
-            var rb = inst.GetComponent<Rigidbody>() ?? inst.AddComponent<Rigidbody>();
+            // Rigidbody on the OWNED root with G2 flat-plane constraints.
+            var rb = root.AddComponent<Rigidbody>();
             rb.useGravity = false;
             rb.constraints = RigidbodyConstraints.FreezePositionY
                            | RigidbodyConstraints.FreezeRotationX
@@ -379,32 +389,31 @@ namespace GoblinSiege.EditorTools
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
 
-            // CapsuleCollider sized in WORLD metres (divide by root scale s).
-            var cap = inst.GetComponent<CapsuleCollider>() ?? inst.AddComponent<CapsuleCollider>();
+            // CapsuleCollider on the root, sized in WORLD metres (root scale == 1).
+            var cap = root.AddComponent<CapsuleCollider>();
             cap.direction = 1; // Y axis
-            cap.height = def.TargetHeight / s;
-            cap.center = new Vector3(0f, (def.TargetHeight * 0.5f) / s, 0f);
-            cap.radius = 0.30f / s;
+            cap.height = def.TargetHeight;
+            cap.center = new Vector3(0f, def.TargetHeight * 0.5f, 0f);
+            cap.radius = 0.30f;
 
-            // Animation driver (both characters). Reads real velocity → "Speed".
-            if (inst.GetComponent<UnitAnimatorDriver>() == null) inst.AddComponent<UnitAnimatorDriver>();
+            // Animation driver on the root (finds the Animator in the model child).
+            root.AddComponent<UnitAnimatorDriver>();
 
             // Enemy-only gameplay: HumanUnit + red Guard/Alert ground ring.
-            if (def.IncludeHumanUnit && inst.GetComponent<HumanUnit>() == null)
-                inst.AddComponent<HumanUnit>();
+            if (def.IncludeHumanUnit) root.AddComponent<HumanUnit>();
 
             if (def.IncludeAlertRing)
             {
-                GameObject ring = BuildAlertRing(inst.transform, s, def.RingMat);
-                var indicator = inst.GetComponent<UnitAlertIndicator>() ?? inst.AddComponent<UnitAlertIndicator>();
-                var body = inst.GetComponentInChildren<SkinnedMeshRenderer>();
+                GameObject ring = BuildAlertRing(root.transform, 1f, def.RingMat);
+                var indicator = root.AddComponent<UnitAlertIndicator>();
+                var body = modelInst.GetComponentInChildren<SkinnedMeshRenderer>();
                 indicator.Configure(ring, body);
             }
 
             Log($"    saving prefab → {def.Prefab}…");
-            PrefabUtility.SaveAsPrefabAsset(inst, def.Prefab, out bool saveOk);
+            PrefabUtility.SaveAsPrefabAsset(root, def.Prefab, out bool saveOk);
             Log($"    SaveAsPrefabAsset success={saveOk}");
-            UnityEngine.Object.DestroyImmediate(inst);
+            UnityEngine.Object.DestroyImmediate(root);
         }
 
         // A thin emissive-red disc at the feet. One SHARED material asset (G3).
