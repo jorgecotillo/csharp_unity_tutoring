@@ -20,6 +20,12 @@ namespace GoblinSiege.Units
         private AlertState _alert;
         private bool _forceAlert;
 
+        // 3D MIGRATION (Phase C): the Paladin prefab carries a UnitAlertIndicator
+        // (red ground ring) so Guard/Alert reads well on a textured model. The
+        // primitive-capsule fallback has NO indicator — we detect that (null) and
+        // fall back to the original flat-colour tint language (G4). Cached in Init.
+        private UnitAlertIndicator _alertIndicator;
+
         public HumanType HumanType => humanType;
 
         public void Init(HumanType type, Vector3 post)
@@ -28,9 +34,39 @@ namespace GoblinSiege.Units
             _postPosition = post;
             ApplyStats(Team.Human, Balance.HumanStats(type));
 
+            // Cache the (optional) alert indicator BEFORE we enter the Guard state,
+            // because GuardState.Enter immediately drives the state visual.
+            _alertIndicator = GetComponentInChildren<UnitAlertIndicator>(true);
+
             _guard = new GuardState(this);
             _alert = new AlertState(this);
             TransitionTo(_guard);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Phase C: surface Guard vs Alert.
+        //   • TEXTURED PALADIN (indicator present): show/hide a red ground ring and
+        //     keep the body almost un-tinted (a whisper of red on Alert) so the art
+        //     stays readable. Cheap — just a SetActive + one MPB push (G3).
+        //   • PRIMITIVE FALLBACK (indicator null): preserve the EXACT original
+        //     dim-grey-red (Guard) / bright-red (Alert) capsule tint language (G4).
+        // Called only on state transitions, never per frame.
+        // ─────────────────────────────────────────────────────────────────────
+        internal void ApplyStateVisual(bool alerted)
+        {
+            if (_alertIndicator != null)
+            {
+                _alertIndicator.SetAlerted(alerted);
+                // Subtle body tint on the textured model: white when guarding,
+                // a faint warm-red when alerted. The ring carries the loud signal.
+                SetVisualTint(alerted ? new Color(1f, 0.82f, 0.82f) : Color.white);
+            }
+            else
+            {
+                // Primitive capsule: original readability tints, unchanged.
+                SetVisualTint(alerted ? new Color(1.0f, 0.2f, 0.2f)
+                                      : new Color(0.55f, 0.28f, 0.28f));
+            }
         }
 
         /// <summary>Called when the alarm reaches Mobilized/FullSally: every human pushes the attack.</summary>
@@ -103,15 +139,12 @@ namespace GoblinSiege.Units
 
             public void Enter()
             {
-                // ─────────────────────────────────────────────────────────────
-                // T2: Guard tint = DIM GREY-RED (0.55, 0.28, 0.28).
-                // ─────────────────────────────────────────────────────────────
-                // WHY DIM: Guards standing at their posts are passive threats —
-                // they won't move until provoked. A muted color lets them fade
-                // into the background so the player focuses on active dangers.
-                // The moment they transition to Alert, they brighten (see below).
-                // ─────────────────────────────────────────────────────────────
-                _h.SetTint(new Color(0.55f, 0.28f, 0.28f));
+                // T2: Guard look. On the textured Paladin this hides the red ground
+                // ring and keeps the body un-tinted; on the primitive capsule it is
+                // the original DIM GREY-RED. (See HumanUnit.ApplyStateVisual.)
+                // WHY SUBTLE: guards at their posts are passive threats — they should
+                // recede so the player focuses on active dangers, until they wake up.
+                _h.ApplyStateVisual(false);
 
                 _h.OrderMoveTo(_h.Post);
             }
@@ -135,21 +168,19 @@ namespace GoblinSiege.Units
 
             public void Enter()
             {
-                // ─────────────────────────────────────────────────────────────
-                // T2: Alert tint = BRIGHT RED (1.0, 0.2, 0.2).
-                // ─────────────────────────────────────────────────────────────
-                // WHY BRIGHT: The garrison just woke up — this human is now
-                // ACTIVELY HUNTING the player's goblins. A vivid red screams
-                // "DANGER!" and lets the player instantly distinguish charging
-                // defenders from passive guards. Combined with T3's hit-flash
-                // (white on damage), the battle reads clearly even in chaos.
+                // T2: Alert look. On the textured Paladin this LIGHTS the red ground
+                // ring (loud "DANGER!" cue that doesn't muddy the art) plus a faint
+                // warm body tint; on the primitive capsule it is the original BRIGHT
+                // RED. (See HumanUnit.ApplyStateVisual.)
                 //
-                // TEACHING MOMENT: State-based tinting is a classic arcade
-                // trick (Pac-Man ghosts change color when vulnerable). It's
-                // cheap (one color assignment) and enormously effective at
-                // communicating AI state without UI clutter.
-                // ─────────────────────────────────────────────────────────────
-                _h.SetTint(new Color(1.0f, 0.2f, 0.2f));
+                // WHY: the garrison just woke up — this human is now ACTIVELY HUNTING
+                // the player's goblins, so it must read instantly. Combined with T3's
+                // white hit-flash, the battle stays legible even in chaos.
+                //
+                // TEACHING MOMENT: state-based visual cues are a classic arcade trick
+                // (Pac-Man ghosts change colour when vulnerable). Cheap, and enormously
+                // effective at communicating AI state without UI clutter.
+                _h.ApplyStateVisual(true);
             }
 
             public void Execute()
