@@ -33,7 +33,10 @@ namespace GoblinSiege.Player
             // 3D MIGRATION: the hero body is now a 3D Rigidbody on the flat XZ plane.
             // Same constraints as every Unit (gravity off, Y position frozen, no
             // tipping; yaw allowed for facing) so the Warlord glides on the board.
+            // Get-or-add (see Unit.Awake): don't depend on [RequireComponent] firing
+            // for a runtime-built object — guarantees the body exists before use.
             _body = GetComponent<Rigidbody>();
+            if (_body == null) _body = gameObject.AddComponent<Rigidbody>();
             _body.useGravity = false;
             _body.constraints = RigidbodyConstraints.FreezePositionY
                               | RigidbodyConstraints.FreezeRotationX

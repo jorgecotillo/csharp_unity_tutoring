@@ -87,7 +87,15 @@ namespace GoblinSiege.Units
         protected virtual void Awake()
         {
             // 3D body setup (was: gravityScale = 0, freezeRotation = true on a Rigidbody2D).
+            // GET-OR-ADD the body — do NOT rely on [RequireComponent] here. Units are
+            // built at runtime by AddComponent-ing this script onto an already-active
+            // primitive (the VisualLibrary fallback). Runtime AddComponent does not
+            // reliably add a [RequireComponent] dependency declared on this ABSTRACT
+            // BASE class before Awake runs, which left Body null and threw a
+            // MissingComponentException ("no 'Rigidbody' attached"). Get-or-add is
+            // bulletproof across the primitive path, art prefabs, and the editor.
             Body = GetComponent<Rigidbody>();
+            if (Body == null) Body = gameObject.AddComponent<Rigidbody>();
             Body.useGravity = false;
             // Keep units glued to the XZ plane and upright: freeze vertical motion
             // and tipping (X/Z rotation), but ALLOW yaw (Y rotation) so they can
