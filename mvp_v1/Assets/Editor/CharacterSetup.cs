@@ -360,7 +360,15 @@ namespace GoblinSiege.EditorTools
             modelInst.transform.SetParent(root.transform, false);
             modelInst.transform.localPosition = Vector3.zero;
             modelInst.transform.localRotation = Quaternion.identity;
-            Log($"    instantiated model under root, renderers={modelInst.GetComponentsInChildren<Renderer>().Length}");
+
+            // UNPACK COMPLETELY so the model's Animator, avatar binding, SkinnedMesh
+            // and skeleton become CONCRETE components owned by our prefab — not a
+            // nested FBX prefab instance. A nested Humanoid instance can fail to drive
+            // the rig at runtime (the model renders in bind/T-pose). Unpacking makes
+            // the controller/avatar assignments below stick reliably.
+            PrefabUtility.UnpackPrefabInstance(modelInst, PrefabUnpackMode.Completely,
+                InteractionMode.AutomatedAction);
+            Log($"    instantiated + unpacked model under root, renderers={modelInst.GetComponentsInChildren<Renderer>().Length}");
 
             // Scale the MODEL child so its rendered AABB height == def.TargetHeight
             // (root stays at scale 1, so the collider/ring below use world metres).
@@ -374,11 +382,15 @@ namespace GoblinSiege.EditorTools
             }
 
             // Animator stays on the MODEL (where the avatar/skeleton live). Cosmetic;
-            // root motion OFF — physics drives movement.
+            // root motion OFF — physics drives movement. Force the avatar explicitly
+            // (not just if-null) and AlwaysAnimate so the rig is driven on first frame
+            // regardless of visibility — guards against the bind/T-pose symptom.
             var anim = modelInst.GetComponent<Animator>() ?? modelInst.AddComponent<Animator>();
-            if (anim.avatar == null) anim.avatar = avatar;
+            anim.avatar = avatar;
             anim.runtimeAnimatorController = controller;
             anim.applyRootMotion = false;
+            anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            Log($"    animator: avatar={(anim.avatar == null ? "NULL" : anim.avatar.name)} controller={(controller == null ? "NULL" : controller.name)}");
 
             // Rigidbody on the OWNED root with G2 flat-plane constraints.
             var rb = root.AddComponent<Rigidbody>();
