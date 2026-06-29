@@ -13,7 +13,6 @@ const compression = require('compression');
 const cookieSession = require('cookie-session');
 const { marked } = require('marked');
 
-const auth = require('./lib/auth');
 const repo = require('./lib/repo');
 const chat = require('./lib/chat');
 const git = require('./lib/git');
@@ -96,24 +95,10 @@ function requirePageAuth(req, res, next) {
 
 // ---- Public auth endpoints ----------------------------------------------
 
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body || {};
-  try {
-    const user = await auth.verify(username, password);
-    if (!user) return res.status(401).json({ error: 'Wrong username or password.' });
-    req.session.username = user.username;
-    req.session.via = 'password';
-    req.session.lastSeen = Date.now();
-    return res.json({ ok: true, username: user.username });
-  } catch (err) {
-    console.error('[login] error', err);
-    return res.status(500).json({ error: 'Login failed. Try again.' });
-  }
-});
-
-// What login methods are available (drives the login page UI).
+// What login methods are available (drives the login page UI). GitHub OAuth is
+// the only door — there is no password fallback.
 app.get('/api/auth/config', (req, res) => {
-  res.json({ github: oauth.isConfigured(), password: auth.userCount() > 0 });
+  res.json({ github: oauth.isConfigured() });
 });
 
 // ---- GitHub OAuth login (interactive) -----------------------------------
@@ -179,7 +164,7 @@ app.get('/api/me', (req, res) => {
   res.json({
     username: req.session.username,
     name: req.session.name || req.session.username,
-    via: req.session.via || 'password',
+    via: req.session.via || 'github',
   });
 });
 
@@ -242,9 +227,9 @@ function rateLimit(username) {
 app.post('/api/chat', requireApiAuth, (req, res) => {
   const username = req.session.username;
   // Capture the push identity NOW (synchronously) — the token store lookup must
-  // happen before the async onDone closure runs. For GitHub-login users this is
-  // their own OAuth token so commits & pushes are attributed to them. For the
-  // dev password path there's no sid, so pusher is null and git.js falls back.
+  // happen before the async onDone closure runs. Every user signs in with GitHub,
+  // so this is their own OAuth token and commits & pushes are attributed to them.
+  // If a token is somehow missing, pusher is null and git.js falls back.
   const pusher = (req.session && req.session.sid) ? tokens.get(req.session.sid) : null;
   const message = (req.body && typeof req.body.message === 'string') ? req.body.message.trim() : '';
 
@@ -376,10 +361,11 @@ app.get('/healthz', (req, res) => res.json({ ok: true }));
 app.listen(PORT, () => {
   console.log(`⚔️  Warren's Game Studio listening on http://localhost:${PORT}`);
   console.log(`    Repo root : ${repo.REPO_ROOT}`);
-  console.log(`    Users     : ${auth.userCount()} (${auth.usernames().join(', ') || 'NONE — set STUDIO_USERS or STUDIO_DEV_PASSWORD'})`);
+  const allowed = oauth.allowedUsers();
+  console.log(`    Login     : GitHub OAuth ${oauth.isConfigured() ? 'on' : 'NOT configured'} — allowed: ${allowed.join(', ') || 'NONE'}`);
   console.log(`    WebGL build present: ${repo.webglExists()}`);
-  if (auth.userCount() === 0) {
-    console.warn('[warn] No users configured — nobody can log in. Set STUDIO_DEV_PASSWORD for local dev.');
+  if (!oauth.isConfigured() || allowed.length === 0) {
+    console.warn('[warn] Nobody can log in. Set GITHUB_OAUTH_CLIENT_ID/SECRET and GITHUB_OAUTH_ALLOWED_USERS.');
   }
 
   // Start the background poller that fast-forwards the local checkout to

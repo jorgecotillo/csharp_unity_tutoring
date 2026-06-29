@@ -8,7 +8,7 @@
     - a Linux B1 App Service plan
     - a Web App running the public GHCR container image
   ...then applies every app setting the studio needs (persistent /home, port 8080,
-  the GitHub App write credential, the git pipeline knobs, the password gate, etc.).
+  the GitHub App write credential, the git pipeline knobs, the GitHub OAuth gate, etc.).
 
   This script does NOT bake any secret into the image. The GitHub App private key is
   uploaded separately to /home/secrets/warren-studio.pem (see DEPLOY.md, step E) and
@@ -43,11 +43,10 @@ param(
     # --- Container image (public GHCR, no registry creds needed) ---
     [string] $Image         = "ghcr.io/jorgecotillo/warren-studio:latest",
 
-    # --- GitHub OAuth login (PRIMARY front door + per-user push identity). ---
+    # --- GitHub OAuth login (the ONLY front door + per-user push identity). ---
     # Register a classic OAuth App at https://github.com/settings/developers and pass the
     # client id + secret here. ALLOWED users is a comma list of GitHub logins (e.g. you +
-    # Warren). Empty client id/secret = the GitHub sign-in button is hidden and the studio
-    # falls back to the dev password gate below.
+    # Warren). Closed-by-default: nobody can sign in unless their login is on this list.
     [string] $GitHubOAuthClientId     = "",
     [string] $GitHubOAuthClientSecret = "",
     [string] $GitHubOAuthAllowedUsers = "",             # e.g. "jorgecotillo,warrens-login"
@@ -58,10 +57,6 @@ param(
     [string] $GitHubAppInstallationId = "",
     # The .pem is uploaded to /home/secrets/ via Kudu (DEPLOY.md step E); we only point at it.
     [string] $GitHubAppPrivateKeyPath = "/home/secrets/warren-studio.pem",
-
-    # --- Password gate (DEV / FALLBACK only — used when OAuth above is not configured). ---
-    [string] $StudioUsersJsonPath = "",                 # path to a JSON array of {username,passwordHash}
-    [string] $DevPassword         = "",                 # quick-start single shared password (less secure)
 
     # --- Session secret (auto-generated if omitted) ---
     [string] $SessionSecret = "",
@@ -100,17 +95,9 @@ if ($SubscriptionId -and $acct.id -ne $SubscriptionId) {
 }
 Say "Subscription: $($acct.name)  ($($acct.id))  user=$($acct.user.name)"
 
-# Resolve the password-gate setting (users JSON wins over dev password)
-$studioUsersValue = ""
-if ($StudioUsersJsonPath) {
-    if (-not (Test-Path $StudioUsersJsonPath)) { throw "StudioUsersJsonPath not found: $StudioUsersJsonPath" }
-    # Collapse to a single compact line so it is a clean app-setting value.
-    $studioUsersValue = (Get-Content -Raw $StudioUsersJsonPath | ConvertFrom-Json | ConvertTo-Json -Compress -Depth 10)
-    Say "Password gate: STUDIO_USERS from $StudioUsersJsonPath"
-} elseif ($DevPassword) {
-    Warn "Password gate: STUDIO_DEV_PASSWORD (single shared dev password). Fine for testing; prefer STUDIO_USERS for real use."
-} else {
-    Warn "No password gate provided. The app will fall back to its built-in dev password ('goblins'). Set -StudioUsersJsonPath or -DevPassword for anything real."
+# Warn if no GitHub OAuth allow-list is configured (closed-by-default = nobody can sign in).
+if (-not $GitHubOAuthAllowedUsers) {
+    Warn "No GITHUB_OAUTH_ALLOWED_USERS set. The studio is closed-by-default: nobody can sign in until you add GitHub logins (e.g. -GitHubOAuthAllowedUsers 'jorgecotillo,warrens-login')."
 }
 
 # Generate a session secret if none supplied
@@ -226,10 +213,6 @@ if ($GitHubOAuthClientId -and $GitHubOAuthClientSecret) {
 if ($GitHubAppId)             { $settings["GITHUB_APP_ID"] = $GitHubAppId }
 if ($GitHubAppInstallationId) { $settings["GITHUB_APP_INSTALLATION_ID"] = $GitHubAppInstallationId }
 $settings["GITHUB_APP_PRIVATE_KEY_PATH"] = $GitHubAppPrivateKeyPath
-
-# Password gate
-if ($studioUsersValue) { $settings["STUDIO_USERS"] = $studioUsersValue }
-elseif ($DevPassword)  { $settings["STUDIO_DEV_PASSWORD"] = $DevPassword }
 
 # Write to a temp JSON file in az's expected shape to avoid all shell-quoting issues.
 $azSettings = foreach ($k in $settings.Keys) {

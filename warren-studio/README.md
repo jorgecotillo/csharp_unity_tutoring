@@ -1,7 +1,7 @@
 # ⚔️ Warren's Game Studio
 
 A small, hosted **Copilot-style studio** scoped to **one purpose**: let **Warren** (and
-Jorge) log in behind a password, read the design spec, browse the game code, and watch the
+Jorge) sign in with GitHub, read the design spec, browse the game code, and watch the
 **Goblin Siege** Unity game run live (WebGL) in the browser — and iterate on it.
 
 This covers **Phase 1 + Phase 2**: the static 3-pane studio shell **plus a live, repo-scoped
@@ -22,19 +22,18 @@ The auto-build loop (chat → edit → rebuild → reload) comes in a later phas
 ```
 warren-studio/
 ├── server.js          # Express app: auth gate + scoped repo API + chat SSE + WebGL serving
-├── package.json       # deps + scripts (start, dev, hash)
+├── package.json       # deps + scripts (start, dev)
 ├── lib/
-│   ├── auth.js        # bcrypt password gate (jorge + warren)
+│   ├── oauth.js       # GitHub OAuth login + two-user allow-list
+│   ├── tokens.js      # in-memory per-session push tokens
 │   ├── chat.js        # headless Copilot CLI driver → streaming chat (read/propose only)
 │   └── repo.js        # read-only, path-scoped repo access + WebGL paths
-├── scripts/
-│   └── hash.js        # generate a bcrypt hash for production users
 ├── public/
-│   ├── login.html     # password login card
+│   ├── login.html     # "Sign in with GitHub" card
 │   ├── studio.html    # 3-pane studio shell
 │   ├── css/studio.css # Goblin-themed GitHub-dark UI
 │   └── js/
-│       ├── login.js   # login form → /api/login
+│       ├── login.js   # kicks off the GitHub OAuth flow
 │       └── studio.js  # wires spec / code / game / chat panes
 ├── Dockerfile         # node:24-alpine production image
 ├── .env               # local config (gitignored) — loaded via dotenv
@@ -49,18 +48,20 @@ The app reads from the repo (its parent of `warren-studio/`) but never writes to
 
 ## Run it locally
 
-Requires **Node 20+** (developed on Node 24).
+Requires **Node 20+** (developed on Node 24). Login is **GitHub OAuth only**, so you need a
+GitHub OAuth App (see `.env.example` for the three `GITHUB_OAUTH_*` values).
 
 ```powershell
 cd warren-studio
 npm install
 
-# Dev mode: auto-creates users "jorge" and "warren" with this shared password.
-$env:STUDIO_DEV_PASSWORD = 'goblins'
+# Configure GitHub OAuth + the two-user allow-list in .env, then:
 node server.js
 ```
 
-Then open **http://localhost:8080** and log in as `warren` / `goblins` (or `jorge` / `goblins`).
+Then open **http://localhost:8080**, click **Sign in with GitHub**, and authorize. Only the
+GitHub usernames in `GITHUB_OAUTH_ALLOWED_USERS` (jorge + warren) may enter — everyone else
+is denied.
 
 > The game preview needs a WebGL build to exist at `mvp_v1/Builds/WebGL/index.html`.
 > If it's missing, the Game pane shows a friendly "no build yet" state — everything else
@@ -73,8 +74,9 @@ Then open **http://localhost:8080** and log in as `warren` / `goblins` (or `jorg
 | `PORT` | HTTP port | `8080` |
 | `SESSION_SECRET` | Signs the session cookie. **Required in production.** | dev-insecure fallback (non-prod only) |
 | `SESSION_IDLE_MIN` | Idle timeout in minutes | `120` |
-| `STUDIO_DEV_PASSWORD` | **Dev only** — shared password; auto-creates `jorge` + `warren` | — |
-| `STUDIO_USERS` | **Production** — JSON array `[{ "username", "hash" }]` of bcrypt hashes | — |
+| `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth App client ID. **Required — only way to log in.** | — |
+| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret (server-side only) | — |
+| `GITHUB_OAUTH_ALLOWED_USERS` | Comma-separated GitHub logins allowed in (closed by default) | — |
 | `REPO_ROOT` | Path to the repo root to read from | `..` (parent of `warren-studio/`) |
 | `CHAT_MODEL` | Copilot model the chat assistant uses | `claude-sonnet-4.6` |
 | `CHAT_RATE_PER_HOUR` | Max chat messages **per user, per hour** (protects your subscription) | `60` |
@@ -82,18 +84,8 @@ Then open **http://localhost:8080** and log in as `warren` / `goblins` (or `jorg
 Local config is read from a gitignored **`.env`** (loaded via `dotenv`). Copy `.env.example`
 to `.env` and fill it in; environment variables already set in the shell win over `.env`.
 
-`STUDIO_DEV_PASSWORD` is for local testing only. In production, set `STUDIO_USERS` with
-real bcrypt hashes and leave `STUDIO_DEV_PASSWORD` unset.
-
-### Generate production password hashes
-
-```powershell
-node scripts/hash.js "the-real-password"
-# prints a bcrypt hash — build STUDIO_USERS from these:
-# [{"username":"jorge","hash":"$2a$..."},{"username":"warren","hash":"$2a$..."}]
-```
-
----
+Login is **GitHub-only**: there is no password fallback. `GITHUB_OAUTH_ALLOWED_USERS` is the
+allow-list — leave it empty and nobody can sign in.
 
 ## Copilot chat (Phase 2)
 
@@ -143,7 +135,8 @@ High-level steps:
    `mvp_v1/Builds/WebGL`) there. In later phases the build loop publishes the WebGL output.
 3. **Set secrets via Key Vault / Container Apps secrets:**
    - `SESSION_SECRET` — a long random string (required in production).
-   - `STUDIO_USERS` — the JSON array of `{username, hash}` for jorge + warren.
+   - `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` — the OAuth App credentials.
+   - `GITHUB_OAUTH_ALLOWED_USERS` — `jorge,warren` (the two allowed logins).
 4. **Enable HTTPS + a custom domain** on the Container App. The app already sets
    `trust proxy`, secure cookies, `helmet`, and `compression`.
 
@@ -162,7 +155,7 @@ az acr build --registry <yourRegistry> --image warren-studio:latest .
 
 ## Security notes
 
-- Password hashes and `SESSION_SECRET` live **server-side only**.
+- GitHub OAuth client secret and `SESSION_SECRET` live **server-side only**.
 - Repo access is **read-only** and **path-scoped** (`lib/repo.js` allow-lists
   `mvp_v1/Assets` + the spec file, rejects `..` escapes and null bytes, caps file size).
 - The Copilot chat is **read/propose only** (`--mode plan`, `--deny-tool write`,

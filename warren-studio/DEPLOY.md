@@ -21,13 +21,13 @@ The studio uses **two completely independent logins**. Don't conflate them:
 | Login | Who | What it's for | How it's set up |
 | ----- | --- | ------------- | --------------- |
 | **🔑 Copilot admin login** | **You (Jorge)** | Powers **all** AI chat. Every message runs the Copilot CLI **as you**, regardless of who is signed into the website. | One-time device login, then transplant `~/.copilot` → `/home/.copilot` (step **F**). |
-| **🚪 Studio GitHub login** | **Whoever uses the site** (Warren or you) | The **front door** (replaces the old password gate) **and** the **git push identity** — commits Warren makes are authored & pushed as **Warren's own GitHub account**. | Interactive "Sign in with GitHub" OAuth App (step **A**). |
+| **🚪 Studio GitHub login** | **Whoever uses the site** (Warren or you) | The **front door** (the *only* login — no password fallback) **and** the **git push identity** — commits Warren makes are authored & pushed as **Warren's own GitHub account**. | Interactive "Sign in with GitHub" OAuth App (step **A**). |
 
 So: the **AI brain is always you**, but **commits are attributed to whoever is signed in**.
-Warren never touches your Copilot login; you never have to share a password.
+Warren never touches your Copilot login; there is no shared password.
 
-> The legacy password gate still exists as a **dev/fallback** only (a `<details>` toggle under
-> the GitHub button). For Warren, the GitHub sign-in is the real front door.
+> Login is **GitHub-only**. Only the GitHub logins in `GITHUB_OAUTH_ALLOWED_USERS`
+> (closed-by-default; empty = nobody) can sign in.
 
 ---
 
@@ -196,10 +196,6 @@ cd warren-studio\deploy
    # add  -PlanName <linux-plan-name>  to reuse pnw-movement's plan for $0 extra
    # callback URL is auto-derived as https://<AppName>.azurewebsites.net/auth/github/callback
 ```
-
-> The legacy `-DevPassword` / `-StudioUsersJsonPath` switches still work and drive the
-> dev/fallback password toggle (the `<details>` under the GitHub button), but you don't need
-> them — **GitHub sign-in is the front door**.
 
 The script is **idempotent** — re-running only re-applies app settings and updates the image.
 It auto-selects your personal subscription (`-SubscriptionId` default `170f5740-...`) and
