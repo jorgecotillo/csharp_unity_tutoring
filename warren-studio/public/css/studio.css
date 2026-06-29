@@ -132,6 +132,85 @@ body {
   font-size: 12px;
 }
 
+/* ---------- GitHub sign-in button ---------- */
+.gh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e6edf3;
+  text-decoration: none;
+  background: #21262d;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.gh-btn:hover {
+  background: #2a3138;
+  border-color: var(--accent-green);
+  transform: translateY(-1px);
+}
+
+.gh-btn .gh-mark {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* ---------- "or" divider ---------- */
+.login-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.login-or::before,
+.login-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ---------- Dev sign-in (collapsible) ---------- */
+.login-dev {
+  margin-top: 4px;
+  text-align: left;
+}
+
+.login-dev > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 6px 0;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.login-dev > summary::-webkit-details-marker {
+  display: none;
+}
+
+.login-dev > summary:hover {
+  color: var(--text);
+}
+
+.login-dev[open] > summary {
+  margin-bottom: 8px;
+}
+
 /* ---------- Top bar ---------- */
 .topbar {
   display: flex;

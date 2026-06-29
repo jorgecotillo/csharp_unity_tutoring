@@ -77,7 +77,18 @@ function repoSlug() {
 // installation token and push to an https URL with that token embedded so the
 // container needs NO stored PAT. Otherwise fall back to the named remote (works
 // for local dev where the user's own git credentials are present).
-async function pushTarget() {
+// Resolve the push target. Priority:
+//   1. The logged-in user's own GitHub OAuth token (pusher) — pushes are
+//      attributed to that human (Warren commits as Warren).
+//   2. A configured GitHub App installation token (legacy/optional fallback).
+//   3. The named remote (local dev where the user's git credentials are present).
+async function pushTarget(pusher) {
+  if (pusher && pusher.token) {
+    const slug = repoSlug();
+    if (slug) {
+      return `https://x-access-token:${pusher.token}@github.com/${slug}.git`;
+    }
+  }
   if (githubApp.isConfigured()) {
     const slug = repoSlug();
     if (slug) {
@@ -116,11 +127,14 @@ function changedGameFiles() {
  * GIT_PUSH_ENABLED) push to the target branch, rebasing once on conflict.
  *
  * @param {string} message  Warren's request — used as the commit subject.
+ * @param {{token?:string, login?:string, name?:string, email?:string}} [pusher]
+ *        The logged-in GitHub user (from the OAuth token store). When present,
+ *        the commit is authored as that human and pushed with their token.
  * @returns {Promise<{changed:boolean, files:string[], sha?:string,
  *           pushed?:boolean, rebased?:boolean, conflict?:boolean,
  *           pushError?:string, pushNote?:string}>}
  */
-async function commitGameEdits(message) {
+async function commitGameEdits(message, pusher) {
   const files = changedGameFiles();
   if (files.length === 0) {
     return { changed: false, files: [] };
@@ -143,7 +157,22 @@ async function commitGameEdits(message) {
       (message && String(message).replace(/\s+/g, ' ').trim().slice(0, 72)) ||
       'Warren game update';
     const commitMsg = `${subject}\n\nMade in Warren's Game Studio.\n\n${COAUTHOR}\n`;
-    git(['commit', '-m', commitMsg]);
+
+    // When a GitHub-logged-in user is driving, attribute the commit to that
+    // human (author + committer) so history shows e.g. "Warren", not a bot.
+    const commitArgs = ['commit', '-m', commitMsg];
+    const commitOpts = {};
+    if (pusher && (pusher.login || pusher.name)) {
+      const authorName = pusher.name || pusher.login;
+      const authorEmail = pusher.email || `${pusher.login}@users.noreply.github.com`;
+      commitArgs.push(`--author=${authorName} <${authorEmail}>`);
+      commitOpts.env = {
+        ...process.env,
+        GIT_COMMITTER_NAME: authorName,
+        GIT_COMMITTER_EMAIL: authorEmail,
+      };
+    }
+    git(commitArgs, commitOpts);
 
     let sha = '';
     try {
@@ -159,10 +188,11 @@ async function commitGameEdits(message) {
       return result;
     }
 
-    // Resolve the push target (authenticated GitHub App URL or named remote).
+    // Resolve the push target (the user's own OAuth token, a GitHub App
+    // installation token, or the named remote).
     let target;
     try {
-      target = await pushTarget();
+      target = await pushTarget(pusher);
     } catch (tokenErr) {
       result.pushed = false;
       result.pushError = redact(

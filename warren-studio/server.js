@@ -13,11 +13,12 @@ const compression = require('compression');
 const cookieSession = require('cookie-session');
 const { marked } = require('marked');
 
-const auth = require('./lib/auth');
 const repo = require('./lib/repo');
 const chat = require('./lib/chat');
 const git = require('./lib/git');
 const pull = require('./lib/pull');
+const oauth = require('./lib/oauth');
+const tokens = require('./lib/tokens');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -94,21 +95,65 @@ function requirePageAuth(req, res, next) {
 
 // ---- Public auth endpoints ----------------------------------------------
 
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body || {};
+// What login methods are available (drives the login page UI). GitHub OAuth is
+// the only door — there is no password fallback.
+app.get('/api/auth/config', (req, res) => {
+  res.json({ github: oauth.isConfigured() });
+});
+
+// ---- GitHub OAuth login (interactive) -----------------------------------
+// "Sign in with GitHub" — this IS the auth gate AND the push credential.
+
+app.get('/auth/github/login', (req, res) => {
+  if (!oauth.isConfigured()) return res.redirect('/login?e=oauth_off');
+  const state = oauth.newState();
+  const redirectUri = oauth.callbackUrl(req);
+  req.session.oauthState = state;
+  req.session.oauthRedirect = redirectUri;
+  res.redirect(oauth.authorizeUrl(state, redirectUri));
+});
+
+app.get('/auth/github/callback', async (req, res) => {
   try {
-    const user = await auth.verify(username, password);
-    if (!user) return res.status(401).json({ error: 'Wrong username or password.' });
-    req.session.username = user.username;
+    if (!oauth.isConfigured()) return res.redirect('/login?e=oauth_off');
+    const { code, state } = req.query || {};
+    const wantState = req.session && req.session.oauthState;
+    const redirectUri = (req.session && req.session.oauthRedirect) || oauth.callbackUrl(req);
+    // One-time use: clear the CSRF state regardless of outcome.
+    if (req.session) {
+      req.session.oauthState = null;
+      req.session.oauthRedirect = null;
+    }
+    if (!code || !state || !wantState || state !== wantState) {
+      return res.redirect('/login?e=state');
+    }
+    const token = await oauth.exchangeCode(String(code), redirectUri);
+    if (!token) return res.redirect('/login?e=failed');
+    const user = await oauth.fetchUser(token);
+    if (!user || !user.login) return res.redirect('/login?e=failed');
+    if (!oauth.isAllowed(user.login)) return res.redirect('/login?e=denied');
+
+    const sid = crypto.randomUUID();
+    tokens.put(sid, {
+      token,
+      login: user.login,
+      name: user.name || user.login,
+      email: user.email,
+    });
+    req.session.username = user.login;
+    req.session.name = user.name || user.login;
+    req.session.sid = sid;
+    req.session.via = 'github';
     req.session.lastSeen = Date.now();
-    return res.json({ ok: true, username: user.username });
+    return res.redirect('/');
   } catch (err) {
-    console.error('[login] error', err);
-    return res.status(500).json({ error: 'Login failed. Try again.' });
+    console.error('[oauth] callback error', err);
+    return res.redirect('/login?e=failed');
   }
 });
 
 app.post('/api/logout', (req, res) => {
+  if (req.session && req.session.sid) tokens.del(req.session.sid);
   req.session = null;
   res.json({ ok: true });
 });
@@ -116,7 +161,11 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/me', (req, res) => {
   if (!isLoggedIn(req)) return res.status(401).json({ error: 'Not logged in.' });
   touch(req);
-  res.json({ username: req.session.username });
+  res.json({
+    username: req.session.username,
+    name: req.session.name || req.session.username,
+    via: req.session.via || 'github',
+  });
 });
 
 // ---- Protected API -------------------------------------------------------
@@ -177,6 +226,11 @@ function rateLimit(username) {
 
 app.post('/api/chat', requireApiAuth, (req, res) => {
   const username = req.session.username;
+  // Capture the push identity NOW (synchronously) — the token store lookup must
+  // happen before the async onDone closure runs. Every user signs in with GitHub,
+  // so this is their own OAuth token and commits & pushes are attributed to them.
+  // If a token is somehow missing, pusher is null and git.js falls back.
+  const pusher = (req.session && req.session.sid) ? tokens.get(req.session.sid) : null;
   const message = (req.body && typeof req.body.message === 'string') ? req.body.message.trim() : '';
 
   // Client owns the chat session id so the CLI can keep conversation context
@@ -233,7 +287,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
       // token + pushes under the in-process lock), so we await it.
       let gameEdit = null;
       try {
-        gameEdit = await git.commitGameEdits(message);
+        gameEdit = await git.commitGameEdits(message, pusher);
       } catch (e) {
         console.error('[git] commit failed', e && e.message ? e.message : e);
         gameEdit = { changed: false, error: true };
@@ -307,10 +361,11 @@ app.get('/healthz', (req, res) => res.json({ ok: true }));
 app.listen(PORT, () => {
   console.log(`⚔️  Warren's Game Studio listening on http://localhost:${PORT}`);
   console.log(`    Repo root : ${repo.REPO_ROOT}`);
-  console.log(`    Users     : ${auth.userCount()} (${auth.usernames().join(', ') || 'NONE — set STUDIO_USERS or STUDIO_DEV_PASSWORD'})`);
+  const allowed = oauth.allowedUsers();
+  console.log(`    Login     : GitHub OAuth ${oauth.isConfigured() ? 'on' : 'NOT configured'} — allowed: ${allowed.join(', ') || 'NONE'}`);
   console.log(`    WebGL build present: ${repo.webglExists()}`);
-  if (auth.userCount() === 0) {
-    console.warn('[warn] No users configured — nobody can log in. Set STUDIO_DEV_PASSWORD for local dev.');
+  if (!oauth.isConfigured() || allowed.length === 0) {
+    console.warn('[warn] Nobody can log in. Set GITHUB_OAUTH_CLIENT_ID/SECRET and GITHUB_OAUTH_ALLOWED_USERS.');
   }
 
   // Start the background poller that fast-forwards the local checkout to

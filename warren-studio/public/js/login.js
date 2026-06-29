@@ -1,34 +1,45 @@
 'use strict';
 
-const form = document.getElementById('loginForm');
 const errorEl = document.getElementById('loginError');
-const btn = document.getElementById('loginBtn');
+const githubBtn = document.getElementById('githubBtn');
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  errorEl.hidden = true;
-  btn.disabled = true;
-  btn.textContent = '⏳ Opening the gate…';
+// Friendly messages for the ?e= codes the OAuth callback redirects with.
+const ERROR_MESSAGES = {
+  state: 'Your sign-in link expired. Please try again.',
+  denied: "That GitHub account isn't on the guest list for this studio.",
+  failed: "GitHub sign-in didn't go through. Please try again.",
+  oauth_off: 'GitHub sign-in is not set up yet — ask Jorge to configure it.',
+};
 
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
+function showError(msg) {
+  errorEl.textContent = '❌ ' + msg;
+  errorEl.hidden = false;
+}
 
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.ok) {
-      window.location.href = '/';
-      return;
-    }
-    throw new Error(data.error || 'Login failed.');
-  } catch (err) {
-    errorEl.textContent = '❌ ' + err.message;
-    errorEl.hidden = false;
-    btn.disabled = false;
-    btn.textContent = '🛡️ Enter the Studio';
+// Surface any error the OAuth callback sent us back with, then clean the URL.
+(function showRedirectError() {
+  const code = new URLSearchParams(window.location.search).get('e');
+  if (code) {
+    showError(ERROR_MESSAGES[code] || 'Sign-in failed. Please try again.');
+    const clean = window.location.pathname;
+    window.history.replaceState({}, document.title, clean);
   }
-});
+})();
+
+// GitHub is the only sign-in. Show the button when it's configured; otherwise
+// tell the user it isn't set up yet.
+(async function configureUi() {
+  let cfg = { github: false };
+  try {
+    const res = await fetch('/api/auth/config');
+    if (res.ok) cfg = await res.json();
+  } catch (_) {
+    /* leave the button hidden */
+  }
+
+  if (cfg.github) {
+    githubBtn.hidden = false;
+  } else {
+    showError('GitHub sign-in is not set up yet — ask Jorge to configure it.');
+  }
+})();
