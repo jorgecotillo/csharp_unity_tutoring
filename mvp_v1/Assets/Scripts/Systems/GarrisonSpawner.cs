@@ -59,7 +59,7 @@ namespace GoblinSiege.Systems
                 _alertedInterval = intervals.alerted;
                 _mobilizedInterval = intervals.mobilized;
             }
-            _timer = 0f;
+            _timer = _alertedInterval; // start with a full delay so first wave isn't instant
             _sallyTriggered = false;
 
             _alarm.OnThresholdChanged += HandleThreshold;

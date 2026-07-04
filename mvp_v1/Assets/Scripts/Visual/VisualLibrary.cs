@@ -143,13 +143,14 @@ namespace GoblinSiege.Visual
             go.name = key;
             go.transform.localScale = d.Scale;
 
-            // Strip the auto-added collider. The 2D original had NO unit colliders
-            // (combat is range/registry-based, not physics-contact), and the order
-            // raycast uses a math Plane — so physics colliders are unnecessary and
-            // would let units bump each other / props (changing feel). Removing them
-            // keeps the game playing "exactly like before" and is cheaper (G3).
-            Collider col = go.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
+            // Strip the auto-added collider only for units and small props.
+            // Walls, the gate, and the player (Warlord) keep their colliders so
+            // the player is physically blocked by barriers (Bug fix: pass-through).
+            if (d.StripCollider)
+            {
+                Collider col = go.GetComponent<Collider>();
+                if (col != null) Object.Destroy(col);
+            }
 
             // Lift center-pivoted primitives so their BASE rests on the ground point
             // the caller passed (gameplay positions are the flat XZ ground, y≈0).
@@ -173,10 +174,11 @@ namespace GoblinSiege.Visual
         {
             public PrimitiveType Shape;
             public Color Color;
-            public string ColorTag;   // cache key for the shared material
+            public string ColorTag;      // cache key for the shared material
             public Vector3 Scale;
             public bool Transparent;
             public bool LiftToGround;
+            public bool StripCollider;   // false = keep the auto-added collider (walls, gate, player)
         }
 
         private static PrimDesc Describe(string key) => key switch
@@ -184,7 +186,7 @@ namespace GoblinSiege.Visual
             // --- Units (capsules; goblin ~1.1m, human ~1.8m, warlord bigger) ---
             KeyGoblin  => Prim(PrimitiveType.Capsule, GoblinGreen, "goblin",  new Vector3(0.55f, 0.55f, 0.55f)),
             KeyHuman   => Prim(PrimitiveType.Capsule, HumanRed,    "human",   new Vector3(0.70f, 0.90f, 0.70f)),
-            KeyWarlord => Prim(PrimitiveType.Capsule, WarlordCyan, "warlord", new Vector3(0.95f, 1.10f, 0.95f)),
+            KeyWarlord => Prim(PrimitiveType.Capsule, WarlordCyan, "warlord", new Vector3(0.95f, 1.10f, 0.95f), stripCollider: false),
 
             // --- Loot caches (cubes; bigger = richer = greedier) — all loot gold (G4) ---
             KeyCacheCrate   => Prim(PrimitiveType.Cube, LootGold, "loot", new Vector3(0.80f, 0.80f, 0.80f)),
@@ -193,9 +195,9 @@ namespace GoblinSiege.Visual
             KeyCacheVault   => Prim(PrimitiveType.Cube, LootGold, "loot", new Vector3(1.45f, 1.45f, 1.45f)),
 
             // --- Structures ---
-            KeyGate => Prim(PrimitiveType.Cube, GateBrown, "gate", new Vector3(3.00f, 1.30f, 0.45f)),
+            KeyGate => Prim(PrimitiveType.Cube, GateBrown, "gate", new Vector3(3.00f, 1.30f, 0.45f), stripCollider: false),
             // Palisade shares the "timber" material with the watchtower/fence/bridge (G3).
-            KeyWall => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(4.00f, 1.30f, 0.45f)),
+            KeyWall => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(4.00f, 1.30f, 0.45f), stripCollider: false),
 
             // ── Phase D props (3D_MIGRATION_SPEC §3) ─────────────────────────────
             // GUARDRAIL G4: scenery is LOW and SHORT so it never hides a unit
@@ -237,17 +239,18 @@ namespace GoblinSiege.Visual
             _ => Prim(PrimitiveType.Cube, new Color(0.6f, 0.6f, 0.6f), "unknown", Vector3.one),
         };
 
-        private static PrimDesc Prim(PrimitiveType shape, Color color, string tag, Vector3 scale) => new()
+        private static PrimDesc Prim(PrimitiveType shape, Color color, string tag, Vector3 scale,
+            bool stripCollider = true) => new()
         {
             Shape = shape, Color = color, ColorTag = tag, Scale = scale,
-            Transparent = false, LiftToGround = true
+            Transparent = false, LiftToGround = true, StripCollider = stripCollider
         };
 
         private static PrimDesc PrimFlat(PrimitiveType shape, Color color, string tag, Vector3 scale,
             bool transparent = false) => new()
         {
             Shape = shape, Color = color, ColorTag = tag, Scale = scale,
-            Transparent = transparent, LiftToGround = false
+            Transparent = transparent, LiftToGround = false, StripCollider = true
         };
 
         // Native half-height of a unit-scale primitive, used for ground-resting.

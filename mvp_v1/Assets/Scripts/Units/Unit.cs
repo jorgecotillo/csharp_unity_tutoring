@@ -297,7 +297,7 @@ namespace GoblinSiege.Units
         /// </summary>
         private IEnumerator DeathPopCoroutine()
         {
-            const float popDuration = 0.12f;
+            const float popDuration = 0.5f; // 0.12s was so fast it looked like enemies "vanished"
 
             Vector3 startScale = transform.localScale;
             float elapsed = 0f;

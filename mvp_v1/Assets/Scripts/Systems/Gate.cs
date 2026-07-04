@@ -52,6 +52,9 @@ namespace GoblinSiege.Systems
             if (hp <= 0f)
             {
                 hp = 0f;
+                // Gate is breached — disable its collider so the player can pass through.
+                var col = GetComponent<Collider>();
+                if (col != null) col.enabled = false;
                 OnDamaged?.Invoke(this, 0f);
                 OnBreached?.Invoke(this);
                 return true;
