@@ -1,0 +1,95 @@
+name: Build & Publish WebGL
+
+# LINK #3 of Warren's Game Studio "see-the-change" loop:
+#   AI edits mvp_v1 on main -> this workflow rebuilds the Unity game to WebGL ->
+#   the build is committed into docs/game -> GitHub Pages + the studio preview
+#   (which serves docs/game same-origin in production) show the new game.
+#
+# Requires repository secret UNITY_LICENSE (a Unity Personal .ulf license file's
+# contents). See the activation checklist in the studio README / chat.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mvp_v1/**'
+      - '.github/workflows/webgl.yml'
+  workflow_dispatch:
+
+# Needed so the job can commit the published build back to main.
+permissions:
+  contents: write
+
+# Never run two WebGL builds at once; queue them so publishes stay ordered.
+concurrency:
+  group: webgl-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build WebGL (Unity 6000.3.15f1)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: mvp_v1/Library
+          key: Library-WebGL-${{ hashFiles('mvp_v1/Assets/**', 'mvp_v1/Packages/**', 'mvp_v1/ProjectSettings/**') }}
+          restore-keys: |
+            Library-WebGL-
+            Library-
+
+      - name: Build WebGL
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          projectPath: mvp_v1
+          unityVersion: 6000.3.15f1
+          targetPlatform: WebGL
+          buildMethod: GoblinSiege.EditorTools.WebGLBuilder.Build
+          # WebGLBuilder.cs creates an empty bootstrap scene at build time, which
+          # dirties the working tree — allow it so the build isn't rejected.
+          allowDirtyBuild: true
+
+      - name: Stage build into docs/game
+        run: |
+          set -euo pipefail
+          SRC="mvp_v1/Builds/WebGL"
+          if [ ! -f "$SRC/index.html" ]; then
+            echo "::error::WebGL build output not found at $SRC/index.html"
+            ls -R mvp_v1/Builds || true
+            exit 1
+          fi
+          rm -rf docs/game
+          mkdir -p docs/game
+          cp -r "$SRC"/. docs/game/
+          # Stamp the real build time + source SHA so the studio can show an
+          # accurate "Built X ago" even after a fresh production clone (where file
+          # mtimes are just the checkout time, not when the game was built).
+          cat > docs/game/build-info.json <<EOF
+          {
+            "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "sha": "${GITHUB_SHA}",
+            "runId": "${GITHUB_RUN_ID}"
+          }
+          EOF
+
+      - name: Commit & push published build
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/game
+          if git diff --cached --quiet; then
+            echo "No build changes to publish."
+            exit 0
+          fi
+          SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          git commit -m "Publish WebGL build for ${SHORT_SHA}" \
+            -m "Auto-built by GameCI from mvp_v1 and published to docs/game for the live preview + GitHub Pages." \
+            -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+          git push

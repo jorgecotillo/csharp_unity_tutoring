@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>⚔️ Warren's Game Studio</title>
+    <link rel="stylesheet" href="/css/studio.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+    />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="crest">⚔️</span>
+        <span class="brand-name">Warren's Game Studio</span>
+        <span class="game-pill">Goblin Siege</span>
+      </div>
+      <div class="who">
+        <span id="whoName" class="who-name">…</span>
+        <button id="logoutBtn" class="ghost-btn" title="Log out">Log out</button>
+      </div>
+    </header>
+
+    <main class="studio">
+      <!-- LEFT: Spec + Code -->
+      <section class="pane pane-left">
+        <div class="pane-head tabs">
+          <button class="tab active" data-tab="spec">📜 Spec</button>
+          <button class="tab" data-tab="code">💻 Code</button>
+        </div>
+
+        <div class="tab-panel" data-panel="spec">
+          <div id="specBody" class="spec-body">Loading the plan…</div>
+        </div>
+
+        <div class="tab-panel" data-panel="code" hidden>
+          <div class="code-layout">
+            <nav id="fileTree" class="file-tree">Loading files…</nav>
+            <div class="code-view">
+              <div id="codePath" class="code-path">Pick a file to read it ⚔️</div>
+              <pre class="code-pre"><code id="codeBody" class="hljs"></code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CENTER: Game preview -->
+      <section class="pane pane-center">
+        <div class="pane-head">
+          <span class="pane-title">🎮 Game Preview</span>
+          <div class="preview-controls">
+            <span id="buildStatus" class="build-status">Checking build…</span>
+            <button id="fullscreenGame" class="ghost-btn" title="Play full screen — best for keyboard">⛶ Play Big</button>
+            <button id="reloadGame" class="primary-btn">⟳ Reload</button>
+          </div>
+        </div>
+        <div class="game-stage">
+          <div id="gameMissing" class="game-missing" hidden>
+            <div class="big-emoji">🛠️</div>
+            <p>No game build yet. Forge one and it'll appear here!</p>
+          </div>
+          <iframe
+            id="gameFrame"
+            class="game-frame"
+            title="Goblin Siege preview"
+            src="/game/index.html"
+            tabindex="0"
+            allow="autoplay; fullscreen; gamepad"
+          ></iframe>
+        </div>
+        <p class="game-hint">🎮 Click the game first, then move with <b>WASD</b> / arrow keys. Tap <b>⛶ Play Big</b> for full screen.</p>
+      </section>
+
+      <!-- RIGHT: Copilot chat -->
+      <section class="pane pane-right">
+        <div class="pane-head">
+          <span class="pane-title">🤖 Copilot Chat</span>
+          <span id="chatModel" class="model-pill"></span>
+          <button id="newChat" class="ghost-btn" type="button" title="Start a fresh chat">🆕 New chat</button>
+        </div>
+        <div id="chatBody" class="chat-body">
+          <div class="chat-bubble bot">
+            <p>Hey Warren! 👋 Ask me stuff like:</p>
+            <ul class="chat-ideas">
+              <li>"How do the goblins decide where to go? 🧠"</li>
+              <li>"How would I make enemies turn red when they chase me? 🔴"</li>
+              <li>"Explain the EnemyAI script to me 📜"</li>
+            </ul>
+            <p>I can read your game code and the spec, then explain it and suggest changes. ⚔️</p>
+          </div>
+        </div>
+        <form id="chatForm" class="chat-input-row">
+          <input
+            id="chatInput"
+            type="text"
+            class="chat-input"
+            placeholder="Ask Copilot about your game… ⚔️"
+            maxlength="2000"
+            autocomplete="off"
+          />
+          <button id="chatSend" class="primary-btn" type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="/js/studio.js"></script>
+  </body>
+</html>

@@ -42,6 +42,12 @@ namespace GoblinSiege.Systems
         /// <summary>Fires when the raid ends. Args: (result, looted, quota, surplus).</summary>
         public event Action<RaidResult, int, int, int> OnRaidEnded;
 
+        /// <summary>Fires when a cache is fully looted. Args: (worldPosition, goldGained).</summary>
+        public event Action<Vector2, int> OnCacheLootedAt;
+
+        /// <summary>Fires when a gate is breached. Arg: worldPosition of the gate.</summary>
+        public event Action<Vector2> OnGateBreachedAt;
+
         public RaidResult Result { get; private set; } = RaidResult.InProgress;
         public AlarmSystem Alarm => alarm;
         public QuotaSystem Quota => quota;
@@ -159,6 +165,7 @@ namespace GoblinSiege.Systems
                 LootCache cache = go.GetComponent<LootCache>() ?? go.AddComponent<LootCache>();
                 cache.Init(type);
                 cache.OnLooted += HandleCacheLooted;
+                cache.OnLooted += (gold, _) => OnCacheLootedAt?.Invoke(cache.transform.position, gold);
                 _caches.Add(cache);
             }
         }
@@ -238,9 +245,10 @@ namespace GoblinSiege.Systems
             alarm.Add(alarmCost);
         }
 
-        private void HandleGateBreached(Gate _)
+        private void HandleGateBreached(Gate gate)
         {
             alarm.Add(Balance.AlarmPerGateBreached);
+            OnGateBreachedAt?.Invoke(gate.transform.position);
         }
 
         private void HandleHumanKilled()

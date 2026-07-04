@@ -1,0 +1,22 @@
+{
+  "name": "warren-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Warren's Game Studio — a hosted, GitHub-OAuth-gated Copilot-style portal scoped to the Goblin Siege Unity game.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cookie-session": "^2.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "marked": "^12.0.2"
+  }
+}
