@@ -80,3 +80,11 @@ Thumbs.db
 # PaladinSetup diagnostic log (editor build trace, machine-local)
 # ---------------------------------------------------------------
 **/PaladinSetup.log
+
+# ---------------------------------------------------------------
+# Published WebGL preview build (served by the portal + GitHub Pages).
+# This is intentionally committed, so re-include it despite the generic
+# [Bb]uild/ ignore rule above (which is meant for local Unity build output).
+# ---------------------------------------------------------------
+!/docs/game/Build/
+!/docs/game/Build/**
