@@ -81,8 +81,8 @@ namespace GoblinSiege.Bootstrap
         private const string RaidJson = @"{
             ""id"": 1, ""name"": ""Thornbrook Hamlet"", ""act"": 1,
             ""quota"": 100, ""alarmFillPerSecond"": 0.8,
-            ""garrisonRoster"": [""Militia""],
-            ""reinforceIntervalByThreshold"": { ""alerted"": 18, ""mobilized"": 11 },
+            ""garrisonRoster"": [""Militia"", ""Crossbow"", ""Pikeman""],
+            ""reinforceIntervalByThreshold"": { ""alerted"": 16, ""mobilized"": 9 },
             ""gates"": [ { ""pos"": [0, 4], ""hp"": 70 } ],
             ""caches"": [
                 { ""type"": ""Crate"", ""pos"": [-4, 6] },
@@ -126,9 +126,11 @@ namespace GoblinSiege.Bootstrap
             // --- Garrison spawn points (north / +Z) ---
             Transform[] spawns =
             {
-                MakePoint("Spawn0", new Vector3(0f, 0f, 16f)),
-                MakePoint("Spawn1", new Vector3(-5f, 0f, 14f)),
-                MakePoint("Spawn2", new Vector3(5f, 0f, 14f))
+                MakePoint("Spawn0", new Vector3(0f,   0f, 16f)),
+                MakePoint("Spawn1", new Vector3(-5f,  0f, 14f)),
+                MakePoint("Spawn2", new Vector3(5f,   0f, 14f)),
+                MakePoint("Spawn3", new Vector3(-9f,  0f, 16f)),
+                MakePoint("Spawn4", new Vector3(9f,   0f, 16f)),
             };
             garrison.SetSpawnAssets(spawns);
 
@@ -140,10 +142,15 @@ namespace GoblinSiege.Bootstrap
             _raid = raidGo.AddComponent<RaidManager>();
             _raid.Inject(RaidJson, _alarm, _quota, garrison, extraction, deploy);
 
-            // --- A few static defenders so there's combat before reinforcements ---
-            SpawnDefender(HumanType.Militia, new Vector3(-3f, 0f, 9.5f));
-            SpawnDefender(HumanType.Militia, new Vector3(3f, 0f, 9.5f));
-            SpawnDefender(HumanType.Militia, new Vector3(0f, 0f, 12.5f));
+            // --- Static defenders: more variety and spread across the village ---
+            SpawnDefender(HumanType.Militia,  new Vector3(-3f,  0f,  9.5f));
+            SpawnDefender(HumanType.Militia,  new Vector3(3f,   0f,  9.5f));
+            SpawnDefender(HumanType.Militia,  new Vector3(0f,   0f, 12.5f));
+            SpawnDefender(HumanType.Crossbow, new Vector3(-7f,  0f, 10.5f));
+            SpawnDefender(HumanType.Crossbow, new Vector3(7f,   0f, 10.5f));
+            SpawnDefender(HumanType.Pikeman,  new Vector3(-2f,  0f, 14.5f));
+            SpawnDefender(HumanType.Pikeman,  new Vector3(2f,   0f, 14.5f));
+            SpawnDefender(HumanType.Militia,  new Vector3(0f,   0f, 17.0f));
 
             // --- Player (Warlord hero + squad commander share one PlayerInput) ---
             BuildPlayer();

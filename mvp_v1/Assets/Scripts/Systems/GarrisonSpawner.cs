@@ -29,7 +29,7 @@ namespace GoblinSiege.Systems
         // ALIVE spawner-controlled humans at 16. SpawnWave bails the moment the cap
         // is reached. (Primitive humans honor the same cap so behavior is identical
         // before and after the art swap.)
-        private const int MaxConcurrentHumans = 16;
+        private const int MaxConcurrentHumans = 28;
 
         /// <summary>Runtime injection for RaidBootstrap (no scene wiring).</summary>
         public void SetSpawnAssets(Transform[] points)
@@ -113,9 +113,9 @@ namespace GoblinSiege.Systems
 
             int count = _alarm.Threshold switch
             {
-                AlarmThreshold.Alerted => 2,
-                AlarmThreshold.Mobilized => 3,
-                AlarmThreshold.FullSally => 4,
+                AlarmThreshold.Alerted => 3,
+                AlarmThreshold.Mobilized => 5,
+                AlarmThreshold.FullSally => 7,
                 _ => 1
             };
 

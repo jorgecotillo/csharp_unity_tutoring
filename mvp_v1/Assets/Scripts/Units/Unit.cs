@@ -104,7 +104,18 @@ namespace GoblinSiege.Units
                              | RigidbodyConstraints.FreezeRotationX
                              | RigidbodyConstraints.FreezeRotationZ;
             Body.interpolation = RigidbodyInterpolation.Interpolate; // smooth visuals
-            Body.collisionDetectionMode = CollisionDetectionMode.Discrete;
+            Body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+
+            // Add a CapsuleCollider so units are physically blocked by walls and gates.
+            // Units are placed on layer 8; we ignore layer-8 vs layer-8 collisions so
+            // units slide past each other instead of shoving — only static barriers block.
+            var cap = GetComponent<CapsuleCollider>();
+            if (cap == null) cap = gameObject.AddComponent<CapsuleCollider>();
+            cap.radius  = 0.35f;
+            cap.height  = 1.8f;
+            cap.center  = new Vector3(0f, 0.9f, 0f); // lift center to match capsule mesh
+            gameObject.layer = 8; // "Units" layer
+            Physics.IgnoreLayerCollision(8, 8, true); // units don't push each other
 
             // Cache the renderer (MeshRenderer for primitives) and an MPB for tinting.
             BodyRenderer = GetComponentInChildren<Renderer>();
