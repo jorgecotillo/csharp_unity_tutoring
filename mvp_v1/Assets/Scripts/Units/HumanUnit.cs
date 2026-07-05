@@ -12,7 +12,7 @@ namespace GoblinSiege.Units
     public class HumanUnit : Unit
     {
         [SerializeField] private HumanType humanType = HumanType.Militia;
-        [SerializeField] private float guardLeashRadius = 6f;
+        [SerializeField] private float guardLeashRadius = 14f;
 
         private Vector3 _postPosition;
         private IState _current;
