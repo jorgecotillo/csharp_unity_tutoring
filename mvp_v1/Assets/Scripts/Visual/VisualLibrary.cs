@@ -209,21 +209,23 @@ namespace GoblinSiege.Visual
             KeyWatchtower => Prim(PrimitiveType.Cylinder, WoodBrown, "timber", new Vector3(0.70f, 1.30f, 0.70f)),
 
             // Village buildings — wide, LOW boxes (timber+thatch suggested by tint).
-            KeyCottage  => Prim(PrimitiveType.Cube, CottageTimber, "cottage",  new Vector3(3.20f, 1.00f, 3.00f)),
-            KeyChapel   => Prim(PrimitiveType.Cube, StoneGrey,     "chapel",   new Vector3(3.60f, 1.60f, 4.20f)),
-            KeyBarn     => Prim(PrimitiveType.Cube, BarnRed,       "barn",     new Vector3(4.20f, 1.20f, 3.20f)),
-            KeyBarracks => Prim(PrimitiveType.Cube, BarracksWood,  "barracks", new Vector3(5.00f, 1.20f, 3.20f)),
-            KeyStall    => Prim(PrimitiveType.Cube, StallWood,     "stall",    new Vector3(1.80f, 0.85f, 1.60f)),
+            // Keep colliders so units and the Warlord are physically blocked (no pass-through).
+            KeyCottage  => Prim(PrimitiveType.Cube, CottageTimber, "cottage",  new Vector3(3.20f, 1.00f, 3.00f), stripCollider: false),
+            KeyChapel   => Prim(PrimitiveType.Cube, StoneGrey,     "chapel",   new Vector3(3.60f, 1.60f, 4.20f), stripCollider: false),
+            KeyBarn     => Prim(PrimitiveType.Cube, BarnRed,       "barn",     new Vector3(4.20f, 1.20f, 3.20f), stripCollider: false),
+            KeyBarracks => Prim(PrimitiveType.Cube, BarracksWood,  "barracks", new Vector3(5.00f, 1.20f, 3.20f), stripCollider: false),
+            KeyStall    => Prim(PrimitiveType.Cube, StallWood,     "stall",    new Vector3(1.80f, 0.85f, 1.60f), stripCollider: false),
 
             // Round props (cylinders/sphere). Half-height handling is fixed in
             // NativeHalfHeight so cylinders rest ON the ground, not half-sunk.
-            KeyWell     => Prim(PrimitiveType.Cylinder, StoneGrey,    "well",     new Vector3(1.00f, 0.28f, 1.00f)),
+            // Keep colliders on solid obstacles (well, trees, rocks) so they block movement.
+            KeyWell     => Prim(PrimitiveType.Cylinder, StoneGrey,    "well",     new Vector3(1.00f, 0.28f, 1.00f), stripCollider: false),
             KeyHaystack => Prim(PrimitiveType.Cylinder, HayYellow,    "hay",      new Vector3(1.10f, 0.55f, 1.10f)),
-            KeyTree     => Prim(PrimitiveType.Cylinder, FoliageGreen, "tree",     new Vector3(1.10f, 0.95f, 1.10f)),
-            KeyRock     => Prim(PrimitiveType.Sphere,   RockGrey,     "rock",     new Vector3(1.10f, 0.70f, 1.30f)),
+            KeyTree     => Prim(PrimitiveType.Cylinder, FoliageGreen, "tree",     new Vector3(1.10f, 0.95f, 1.10f), stripCollider: false),
+            KeyRock     => Prim(PrimitiveType.Sphere,   RockGrey,     "rock",     new Vector3(1.10f, 0.70f, 1.30f), stripCollider: false),
 
             // Knee-high field clutter — must not occlude (G4).
-            KeyFence    => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(2.20f, 0.50f, 0.18f)),
+            KeyFence    => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(2.20f, 0.50f, 0.18f), stripCollider: false),
             KeyBridge   => Prim(PrimitiveType.Cube, WoodBrown, "timber", new Vector3(3.20f, 0.28f, 2.40f)),
 
             // --- Markers / ground (flat; not lifted — positioned explicitly) ---
