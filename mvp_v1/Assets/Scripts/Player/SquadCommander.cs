@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using GoblinSiege.Systems;
 using GoblinSiege.Units;
@@ -26,6 +27,9 @@ namespace GoblinSiege.Player
         private InputAction _selectAll;
 
         private readonly List<Squad> _selection = new();
+
+        /// <summary>Fires after the selection changes. Arg: current selection (read-only).</summary>
+        public event Action<IReadOnlyList<Squad>> OnSelectionChanged;
 
         /// <summary>Runtime injection for RaidBootstrap (no scene wiring).</summary>
         public void Setup(RaidManager raidRef, Camera cam)
@@ -82,6 +86,7 @@ namespace GoblinSiege.Player
                     _selection.Add(s);
                 }
             }
+            OnSelectionChanged?.Invoke(_selection);
         }
 
         private void SelectOnly(int index)
@@ -92,6 +97,7 @@ namespace GoblinSiege.Player
             ClearSelection();
             s.SetSelected(true);
             _selection.Add(s);
+            OnSelectionChanged?.Invoke(_selection);
         }
 
         private void ClearSelection()

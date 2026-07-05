@@ -76,6 +76,9 @@ namespace GoblinSiege.Bootstrap
         private Text _thresholdCalloutText;
         private Image _screenPulseOverlay;
 
+        // Selection HUD — bottom-of-screen unit panel.
+        private GoblinSiege.UI.SelectionHUD _selectionHud;
+
         // Embedded starter raid (mirrors Data/Raids/raid-01.json) so no Resources load is needed.
         // Positions are JSON [x, y]; RaidManager maps them to world (x, 0, y).
         private const string RaidJson = @"{
@@ -476,6 +479,12 @@ namespace GoblinSiege.Bootstrap
             var commander = go.AddComponent<SquadCommander>();
             commander.Setup(_raid, Camera.main);
 
+            // Wire the selection HUD: rebuild cards whenever the player picks squads.
+            commander.OnSelectionChanged += selection =>
+            {
+                if (_selectionHud != null) _selectionHud.Refresh(selection);
+            };
+
             // T5: Make the Warlord a real combat target that can die and end the raid.
             // WarlordUnit is a Unit subclass on Team.Goblin (humans target it via
             // FindNearestEnemy) but excluded from loot/extraction/win (INonObjectiveRaider).
@@ -494,6 +503,11 @@ namespace GoblinSiege.Bootstrap
 
         private void BuildHud()
         {
+            // Selection HUD: bottom-of-screen unit panel (its own canvas).
+            var selHudGo = new GameObject("SelectionHUD");
+            selHudGo.transform.SetParent(transform);
+            _selectionHud = selHudGo.AddComponent<GoblinSiege.UI.SelectionHUD>();
+
             var canvasGo = new GameObject("HUD Canvas");
             canvasGo.transform.SetParent(transform);
             var canvas = canvasGo.AddComponent<Canvas>();
