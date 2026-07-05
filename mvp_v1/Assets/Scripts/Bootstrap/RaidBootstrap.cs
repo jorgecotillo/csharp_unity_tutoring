@@ -182,6 +182,11 @@ namespace GoblinSiege.Bootstrap
             cam.transform.SetPositionAndRotation(cameraPosition, Quaternion.Euler(cameraPitch, 0f, 0f));
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.20f, 0.17f, 0.24f); // deep dusk sky
+
+            // Attach the scroll-wheel zoom controller. Starts at the configured FOV.
+            var zoom = cam.gameObject.GetComponent<CameraZoom>()
+                    ?? cam.gameObject.AddComponent<CameraZoom>();
+            zoom.SetInitialFov(cameraFov);
         }
 
         private void SetupLighting()
