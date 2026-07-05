@@ -208,7 +208,7 @@ namespace GoblinSiege.Systems
 
         private static List<GoblinType> DefaultBand() => new()
         {
-            GoblinType.Grunt, GoblinType.Grunt, GoblinType.Spearthrower
+            GoblinType.Grunt, GoblinType.Grunt, GoblinType.Spearthrower, GoblinType.Sapper
         };
 
         private void Update()

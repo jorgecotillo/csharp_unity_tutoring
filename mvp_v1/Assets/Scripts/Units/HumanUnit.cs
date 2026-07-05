@@ -78,6 +78,7 @@ namespace GoblinSiege.Units
 
         protected override void FixedUpdate()
         {
+            if (!IsAlive) return; // don't run the FSM after death
             _current?.Execute();
             base.FixedUpdate();
         }

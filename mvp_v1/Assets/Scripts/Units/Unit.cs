@@ -285,31 +285,48 @@ namespace GoblinSiege.Units
         protected virtual void Die()
         {
             // Fire OnDied FIRST so RaidManager/alarm/score logic reacts immediately,
-            // before the visual pop (keeps existing game-logic timing intact).
+            // before the visual animation (keeps existing game-logic timing intact).
             OnDied?.Invoke(this);
 
-            StartCoroutine(DeathPopCoroutine());
+            // Stop all movement and disable physics so the corpse stays put.
+            if (Body != null)
+            {
+                Body.linearVelocity = Vector3.zero;
+                Body.isKinematic = true;
+            }
+            // Disable the collider so dead bodies don't block living units.
+            var col = GetComponent<Collider>();
+            if (col != null) col.enabled = false;
+
+            StartCoroutine(DeathCoroutine());
         }
 
         /// <summary>
-        /// Death-pop: shrink to zero over ~0.12s then deactivate. Works identically
-        /// in 3D (localScale is a Vector3 either way). Frame-rate independent (G5).
+        /// Death animation: the unit topples forward (rotates 90° on X) over 0.3s,
+        /// lies on the ground for 2s so the player can see the fallen enemy, then
+        /// deactivates. Frame-rate independent (G5).
         /// </summary>
-        private IEnumerator DeathPopCoroutine()
+        private IEnumerator DeathCoroutine()
         {
-            const float popDuration = 0.5f; // 0.12s was so fast it looked like enemies "vanished"
+            const float tiltDuration = 0.3f;
+            const float lingerDuration = 2.0f;
 
-            Vector3 startScale = transform.localScale;
+            // Topple: rotate 90° forward in the unit's local space.
+            Quaternion startRot = transform.rotation;
+            Quaternion endRot = startRot * Quaternion.Euler(90f, 0f, 0f);
             float elapsed = 0f;
-            while (elapsed < popDuration)
+            while (elapsed < tiltDuration)
             {
                 elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / popDuration);
-                transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
+                float t = Mathf.Clamp01(elapsed / tiltDuration);
+                transform.rotation = Quaternion.Slerp(startRot, endRot, t);
                 yield return null;
             }
+            transform.rotation = endRot;
 
-            transform.localScale = Vector3.zero;
+            // Lie on the ground so the player clearly sees the defeated enemy.
+            yield return new WaitForSeconds(lingerDuration);
+
             gameObject.SetActive(false);
         }
 
