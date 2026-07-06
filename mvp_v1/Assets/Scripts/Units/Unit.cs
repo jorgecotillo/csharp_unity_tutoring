@@ -107,15 +107,26 @@ namespace GoblinSiege.Units
             Body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
             // Add a CapsuleCollider so units are physically blocked by walls and gates.
-            // Units are placed on layer 8; we ignore layer-8 vs layer-8 collisions so
-            // units slide past each other instead of shoving — only static barriers block.
-            var cap = GetComponent<CapsuleCollider>();
-            if (cap == null) cap = gameObject.AddComponent<CapsuleCollider>();
-            cap.radius  = 0.35f;
-            cap.height  = 1.8f;
-            cap.center  = new Vector3(0f, 0.9f, 0f); // lift center to match capsule mesh
+            // CRITICAL BUG FIX: VisualLibrary calls Object.Destroy (DEFERRED) on the
+            // primitive's auto-added collider. When Unit.Awake runs immediately after,
+            // GetComponent<CapsuleCollider>() still finds the pending-destruction collider
+            // and skips AddComponent — so at end-of-frame when Destroy finally fires,
+            // the unit has NO collider at all and passes through every wall/building.
+            // The Warlord was immune because its key uses stripCollider:false.
+            // Fix: DestroyImmediate removes the old collider BEFORE AddComponent runs.
+            var existingCap = GetComponent<CapsuleCollider>();
+            if (existingCap != null) DestroyImmediate(existingCap);
+            var cap = gameObject.AddComponent<CapsuleCollider>();
+            // Scale collider to WORLD-space dimensions so a 0.55× goblin primitive and
+            // a 0.95× Warlord both get the same physical footprint (~0.35 m radius).
+            Vector3 s = transform.localScale;
+            float sx = Mathf.Max(s.x, s.z, 0.01f);
+            float sy = Mathf.Max(s.y, 0.01f);
+            cap.radius = 0.35f / sx;                   // 0.35 m world radius
+            cap.height = 1.8f  / sy;                   // 1.8 m world height
+            cap.center = new Vector3(0f, 0.9f / sy, 0f); // base sits on the ground
             gameObject.layer = 8; // "Units" layer
-            Physics.IgnoreLayerCollision(8, 8, true); // units don't push each other
+            Physics.IgnoreLayerCollision(8, 8, true); // units slide past each other; walls still block
 
             // Cache the renderer (MeshRenderer for primitives) and an MPB for tinting.
             BodyRenderer = GetComponentInChildren<Renderer>();

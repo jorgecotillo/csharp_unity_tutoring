@@ -50,11 +50,42 @@ namespace GoblinSiege.Systems
             _source.playOnAwake = false;
             _targetPitch      = pitchUnaware;
 
-            if (musicClip != null)
+            // Generate a built-in ambient drone if no real clip was dropped in the Inspector.
+            // Replace it any time by assigning a .ogg / .wav / .mp3 to the Music Clip field.
+            if (musicClip == null)
+                musicClip = GenerateAmbientDrone();
+
+            _source.clip = musicClip;
+            _source.Play();
+        }
+
+        /// <summary>
+        /// Procedural fallback: a 4-second looping goblin war-drum drone (A2 + E3 + A3
+        /// sine layers with a slow 0.5 Hz wobble for tension). Sounds low and ominous —
+        /// good placeholder until a real music file is added to the project.
+        /// </summary>
+        private static AudioClip GenerateAmbientDrone()
+        {
+            const int   sampleRate   = 22050;
+            const float loopSeconds  = 4f;
+            int totalSamples = Mathf.RoundToInt(sampleRate * loopSeconds);
+            var data = new float[totalSamples];
+
+            for (int i = 0; i < totalSamples; i++)
             {
-                _source.clip = musicClip;
-                _source.Play();
+                float t = (float)i / sampleRate;
+                // Slow wobble keeps the pitch from feeling totally static.
+                float wobble = 1f + 0.03f * Mathf.Sin(2f * Mathf.PI * 0.5f * t);
+                data[i] =
+                    (Mathf.Sin(2f * Mathf.PI * 110f * t * wobble) * 0.35f  // A2 drone
+                   + Mathf.Sin(2f * Mathf.PI * 165f * t)          * 0.22f  // E3 fifth
+                   + Mathf.Sin(2f * Mathf.PI * 220f * t)          * 0.13f) // A3 octave
+                   * 0.45f; // master gain — comfortable without clipping
             }
+
+            var clip = AudioClip.Create("GoblinSiege_AmbientDrone", totalSamples, 1, sampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
         }
 
         /// <summary>
@@ -67,7 +98,7 @@ namespace GoblinSiege.Systems
             _alarm.OnThresholdChanged += HandleThreshold;
 
             // If music wasn't assigned in the Inspector, still start playing
-            // (silence is better than a crash, and a real clip can be added later).
+            // (Awake already generated and started the fallback drone; this is a safety net).
             if (!_source.isPlaying && _source.clip != null)
                 _source.Play();
         }

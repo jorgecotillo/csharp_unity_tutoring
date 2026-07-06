@@ -421,6 +421,7 @@ namespace GoblinSiege.Bootstrap
         /// Builds a door the Warlord can open. The door is a thin brown cube with a Door
         /// component — walk up and it swings open with a smooth animation. Placed on
         /// layer 0 (default) so the warlord's Rigidbody is physically blocked until opened.
+        /// A pulsing golden disc on the floor marks it as interactive (G4).
         /// </summary>
         private GameObject BuildDoor(Vector3 pos, Transform parent)
         {
@@ -441,6 +442,24 @@ namespace GoblinSiege.Bootstrap
 
             // Attach the gameplay Door component (adds its own trigger child).
             doorGo.AddComponent<Door>();
+
+            // G4 interactive hint: a pulsing gold disc on the floor in front of the door
+            // so Warren can see "something important is here — walk up to it!".
+            var hintDisc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            hintDisc.name = "DoorHint";
+            hintDisc.transform.SetParent(parent);
+            hintDisc.transform.position = new Vector3(pos.x, 0.02f, pos.z - 1.8f);
+            hintDisc.transform.localScale = new Vector3(2.4f, 0.04f, 2.4f);
+            var discRend = hintDisc.GetComponent<Renderer>();
+            if (discRend != null)
+            {
+                var discMat = new Material(discRend.sharedMaterial);
+                discMat.color = VisualLibrary.LootGold;
+                discRend.material = discMat;
+            }
+            Object.Destroy(hintDisc.GetComponent<Collider>()); // decoration only
+            hintDisc.AddComponent<ZonePulse>();
+
             return doorGo;
         }
 
@@ -589,14 +608,14 @@ namespace GoblinSiege.Bootstrap
             // ═══════════════════════════════════════════════════════════════════
             _goalBannerText = MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.5f, 0.85f),
-                "Breach the gate. Loot the quota.\nReach the BLUE zone before the alarm fills.",
-                fontSize: 22);
+                "Send your SAPPER squad to breach the gate · Loot the quota\nWalk near the GOLD disc (DOOR) to open it · Reach the BLUE zone to escape!",
+                fontSize: 20);
             StartCoroutine(FadeOutAfterDelay(_goalBannerText, delaySeconds: 5f, fadeDuration: 1f));
 
             // Controls Card: small persistent reference in bottom-left corner.
             MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.02f, 0.02f),
-                "WASD move · 1/2/3 select squad · ` select all\nRight-click order · H = Warhorn (once)",
+                "WASD move · 1/2/3 select squad · ` select all\nRight-click order · H = Warhorn (once) · Walk near GOLD disc = open door",
                 fontSize: 12,
                 anchor: TextAnchor.LowerLeft,
                 pivotAnchor: new Vector2(0f, 0f));
