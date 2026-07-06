@@ -116,6 +116,14 @@ namespace GoblinSiege.Bootstrap
             _quota = sysGo.AddComponent<QuotaSystem>();
             var garrison = sysGo.AddComponent<GarrisonSpawner>();
 
+            // --- Background music: speeds up when the alarm rises (enemies appear) ---
+            var musicGo = new GameObject("MusicManager");
+            musicGo.transform.SetParent(sysGo.transform);
+            var music = musicGo.AddComponent<MusicManager>();
+            // Configure AFTER the alarm is set up so it can subscribe to threshold events.
+            // Drop a .wav/.mp3/.ogg AudioClip onto the MusicManager's "Music Clip" field
+            // in the Inspector to hear music; it will still wire up and speed up without one.
+
             // --- Extraction zone (south edge, XZ origin) ---
             // G4: a BLUE translucent "goal" marker, distinct from green goblins, gold
             // caches, brown gates and red humans. Spawned through the art seam so a real
@@ -144,6 +152,13 @@ namespace GoblinSiege.Bootstrap
             raidGo.transform.SetParent(transform);
             _raid = raidGo.AddComponent<RaidManager>();
             _raid.Inject(RaidJson, _alarm, _quota, garrison, extraction, deploy);
+
+            // Configure music NOW — after _alarm.Configure() is called inside Inject.
+            music.Configure(_alarm);
+
+            // --- Door at the barracks entrance (Warlord walks up and it swings open) ---
+            // Position it at the barracks threshold; the warlord approaches from the south.
+            BuildDoor(new Vector3(0f, 0f, 15.0f), parent: transform);
 
             // --- Static defenders: more variety and spread across the village ---
             SpawnDefender(HumanType.Militia,  new Vector3(-3f,  0f,  9.5f));
@@ -400,6 +415,33 @@ namespace GoblinSiege.Bootstrap
         {
             return VisualLibrary.Spawn(key,
                 new Vector3(x, 0f, z), Quaternion.Euler(0f, yawDegrees, 0f), parent);
+        }
+
+        /// <summary>
+        /// Builds a door the Warlord can open. The door is a thin brown cube with a Door
+        /// component — walk up and it swings open with a smooth animation. Placed on
+        /// layer 0 (default) so the warlord's Rigidbody is physically blocked until opened.
+        /// </summary>
+        private GameObject BuildDoor(Vector3 pos, Transform parent)
+        {
+            var doorGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            doorGo.name = "Door";
+            doorGo.transform.SetParent(parent);
+            doorGo.transform.position = pos;
+            doorGo.transform.localScale = new Vector3(2.0f, 2.2f, 0.2f);
+
+            // Earthy wood-brown tint so the door reads as scenery, not a unit (G4).
+            var rend = doorGo.GetComponent<Renderer>();
+            if (rend != null)
+            {
+                var mat = new Material(rend.sharedMaterial);
+                mat.color = VisualLibrary.WoodBrown;
+                rend.material = mat;
+            }
+
+            // Attach the gameplay Door component (adds its own trigger child).
+            doorGo.AddComponent<Door>();
+            return doorGo;
         }
 
         // Spawn a flat ground strip (road / ford) and size it. The GroundField/Village

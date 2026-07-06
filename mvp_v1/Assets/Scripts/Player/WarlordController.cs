@@ -42,6 +42,19 @@ namespace GoblinSiege.Player
                               | RigidbodyConstraints.FreezeRotationX
                               | RigidbodyConstraints.FreezeRotationZ;
             _body.interpolation = RigidbodyInterpolation.Interpolate;
+            _body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+
+            // Add a CapsuleCollider so the Warlord is physically blocked by walls,
+            // gates, and doors — same setup as Unit.Awake (G2 flat gameplay).
+            var cap = GetComponent<CapsuleCollider>();
+            if (cap == null) cap = gameObject.AddComponent<CapsuleCollider>();
+            cap.radius = 0.35f;
+            cap.height = 1.8f;
+            cap.center = new Vector3(0f, 0.9f, 0f);
+            // Layer 8 = "Units": unit-vs-unit collision is globally ignored, but
+            // static scene geometry (layer 0) still blocks the Warlord (G2).
+            gameObject.layer = 8;
+
             _input = GetComponent<PlayerInput>();
         }
 
