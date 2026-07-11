@@ -107,16 +107,14 @@ namespace GoblinSiege.Units
             Body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
             // Add a CapsuleCollider so units are physically blocked by walls and gates.
-            // CRITICAL BUG FIX: VisualLibrary calls Object.Destroy (DEFERRED) on the
-            // primitive's auto-added collider. When Unit.Awake runs immediately after,
-            // GetComponent<CapsuleCollider>() still finds the pending-destruction collider
-            // and skips AddComponent — so at end-of-frame when Destroy finally fires,
-            // the unit has NO collider at all and passes through every wall/building.
-            // The Warlord was immune because its key uses stripCollider:false.
-            // Fix: DestroyImmediate removes the old collider BEFORE AddComponent runs.
-            var existingCap = GetComponent<CapsuleCollider>();
-            if (existingCap != null) DestroyImmediate(existingCap);
-            var cap = gameObject.AddComponent<CapsuleCollider>();
+            // Get-or-add: reuse the primitive's existing collider if present.
+            // VisualLibrary keeps colliders on unit primitives (stripCollider:false for
+            // Goblin/Human/Warlord) so GetComponent always succeeds on the fallback
+            // path. Art prefabs may or may not carry one — the null branch handles that.
+            // This avoids DestroyImmediate (unreliable during Awake in play mode) and
+            // the old Object.Destroy deferred-race that let goblins pass through walls.
+            var cap = GetComponent<CapsuleCollider>();
+            if (cap == null) cap = gameObject.AddComponent<CapsuleCollider>();
             // Scale collider to WORLD-space dimensions so a 0.55× goblin primitive and
             // a 0.95× Warlord both get the same physical footprint (~0.35 m radius).
             Vector3 s = transform.localScale;

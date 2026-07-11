@@ -184,7 +184,7 @@ namespace GoblinSiege.Visual
         private static PrimDesc Describe(string key) => key switch
         {
             // --- Units (capsules; goblin ~1.1m, human ~1.8m, warlord bigger) ---
-            KeyGoblin  => Prim(PrimitiveType.Capsule, GoblinGreen, "goblin",  new Vector3(0.55f, 0.55f, 0.55f)),
+            KeyGoblin  => Prim(PrimitiveType.Capsule, GoblinGreen, "goblin",  new Vector3(0.55f, 0.55f, 0.55f), stripCollider: false),
             KeyHuman   => Prim(PrimitiveType.Capsule, HumanRed,    "human",   new Vector3(0.70f, 0.90f, 0.70f)),
             KeyWarlord => Prim(PrimitiveType.Capsule, WarlordCyan, "warlord", new Vector3(0.95f, 1.10f, 0.95f), stripCollider: false),
 
