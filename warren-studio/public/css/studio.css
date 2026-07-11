@@ -816,3 +816,111 @@ body {
     height: 70vh;
   }
 }
+
+/* ---------- Rebuild-in-progress overlay (auto-build animation) ---------- */
+.rebuild-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+    600px 400px at 50% 40%,
+    rgba(13, 17, 23, 0.82),
+    rgba(0, 0, 0, 0.92)
+  );
+  backdrop-filter: blur(2px);
+}
+
+.rebuild-overlay[hidden] {
+  display: none;
+}
+
+.rebuild-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 26px 34px;
+  border-radius: 16px;
+  border: 1px solid var(--accent-orange, #d29922);
+  background: rgba(22, 27, 34, 0.75);
+  box-shadow: 0 0 40px rgba(210, 153, 34, 0.25);
+  text-align: center;
+  max-width: 82%;
+}
+
+.rebuild-anvil {
+  font-size: 52px;
+  line-height: 1;
+  animation: wgs-forge 1.1s ease-in-out infinite;
+  transform-origin: 50% 70%;
+}
+
+.rebuild-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--accent-orange, #d29922);
+  letter-spacing: 0.2px;
+}
+
+.rebuild-bar {
+  position: relative;
+  width: 220px;
+  max-width: 60vw;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.rebuild-bar span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-orange, #d29922),
+    var(--accent-pink, #f778ba)
+  );
+  animation: wgs-indeterminate 1.4s ease-in-out infinite;
+}
+
+.rebuild-meta {
+  font-size: 12.5px;
+  color: var(--muted, #8b949e);
+}
+
+.rebuild-meta #rebuildTime {
+  color: var(--text, #e6edf3);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* The "🔨 Rebuilding your game" note inside the chat's game-edit chip. */
+.game-edit-rebuild {
+  margin-top: 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--accent-orange, #d29922);
+}
+
+@keyframes wgs-forge {
+  0%, 100% { transform: rotate(-14deg) translateY(0); }
+  45% { transform: rotate(10deg) translateY(-2px); }
+  55% { transform: rotate(12deg) translateY(1px); }
+}
+
+@keyframes wgs-indeterminate {
+  0% { left: -42%; }
+  100% { left: 102%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rebuild-anvil { animation: none; }
+  .rebuild-bar span { animation: none; width: 100%; opacity: 0.7; }
+}

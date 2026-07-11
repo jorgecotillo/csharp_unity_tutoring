@@ -249,6 +249,11 @@
   let lastAvailable = null;
   let lastBuiltAt = null;
 
+  // Auto-build (rebuild-in-progress) tracking.
+  let buildActive = false;
+  let buildStartedAt = null; // ms epoch
+  let buildTicker = null; // 1s interval that updates the elapsed display
+
   async function refreshGameStatus() {
     const statusEl = $('#buildStatus');
     const missingEl = $('#gameMissing');
@@ -276,10 +281,91 @@
         lastBuiltAt = null;
       }
       lastAvailable = !!data.available;
+      updateBuildUI(data.build);
     } catch (err) {
       statusEl.textContent = '⚠️ Status check failed';
       statusEl.title = err.message;
     }
+  }
+
+  // Drive the "rebuilding your game" animation from the server's build state.
+  function updateBuildUI(b) {
+    const building = !!(b && b.building);
+    const startedIso = b && b.startedAt;
+    setBuildActive(building, startedIso);
+  }
+
+  // Show/hide the rebuild overlay + spin up a local 1s elapsed-time ticker so
+  // the animation feels alive between the (slower) status polls.
+  function setBuildActive(active, startedIso) {
+    const overlay = $('#rebuildOverlay');
+    const statusEl = $('#buildStatus');
+
+    if (active && !buildActive) {
+      // transition idle -> building
+      buildStartedAt = startedIso ? new Date(startedIso).getTime() : Date.now();
+      if (overlay) overlay.hidden = false;
+      startBuildTicker();
+      // Poll faster while building so the "done -> reload" is snappy.
+      scheduleNextPoll();
+    } else if (!active && buildActive) {
+      // transition building -> done
+      if (overlay) overlay.hidden = true;
+      stopBuildTicker();
+      buildStartedAt = null;
+      scheduleNextPoll();
+    } else if (active && buildActive && startedIso) {
+      // still building; keep the start time in sync (in case a queued build
+      // restarted the clock)
+      const t = new Date(startedIso).getTime();
+      if (!isNaN(t)) buildStartedAt = t;
+    }
+    buildActive = active;
+    if (statusEl && active) {
+      statusEl.textContent = '🔨 Rebuilding… ' + formatElapsed(buildStartedAt);
+      statusEl.title = 'Auto-rebuilding your game';
+    }
+  }
+
+  function startBuildTicker() {
+    stopBuildTicker();
+    tickBuild();
+    buildTicker = setInterval(tickBuild, 1000);
+  }
+  function stopBuildTicker() {
+    if (buildTicker) { clearInterval(buildTicker); buildTicker = null; }
+  }
+  function tickBuild() {
+    const el = $('#rebuildTime');
+    const statusEl = $('#buildStatus');
+    const txt = formatElapsed(buildStartedAt);
+    if (el) el.textContent = txt;
+    if (statusEl && buildActive) statusEl.textContent = '🔨 Rebuilding… ' + txt;
+  }
+  function formatElapsed(startMs) {
+    if (!startMs) return '0:00';
+    const secs = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m + ':' + (s < 10 ? '0' + s : s);
+  }
+
+  // Optimistically show the overlay the instant a chat reply reports it kicked
+  // off a rebuild, without waiting for the next status poll.
+  function showRebuildingNow() {
+    setBuildActive(true, new Date().toISOString());
+  }
+
+  // Adaptive status polling: fast while a rebuild is running (so the reload is
+  // snappy), relaxed when idle.
+  let pollTimer = null;
+  function scheduleNextPoll() {
+    if (pollTimer) clearTimeout(pollTimer);
+    const delay = buildActive ? 4000 : 15000;
+    pollTimer = setTimeout(async () => {
+      await refreshGameStatus();
+      scheduleNextPoll();
+    }, delay);
   }
 
   function wireReload() {
@@ -387,6 +473,15 @@
       list.className = 'game-edit-files';
       list.textContent = files.slice(0, 6).join(', ') + (n > 6 ? ' …' : '');
       el.appendChild(list);
+    }
+
+    if (ge.rebuilding) {
+      const rb = document.createElement('div');
+      rb.className = 'game-edit-rebuild';
+      rb.textContent = ge.rebuildQueued
+        ? '🔨 Queued a rebuild — the preview refreshes after the current one finishes.'
+        : '🔨 Rebuilding your game — the preview refreshes on its own in a few minutes!';
+      el.appendChild(rb);
     }
     return el;
   }
@@ -551,6 +646,7 @@
             if (ge) {
               const node = renderGameEdit(ge);
               if (node) bot.appendChild(node);
+              if (ge.rebuilding) showRebuildingNow();
             }
             scrollChat();
           } else if (parsed.event === 'error') {
@@ -619,7 +715,8 @@
     refreshGameStatus();
 
     // Keep the build status fresh so a freshly-forged game shows up on its own.
-    setInterval(refreshGameStatus, 15000);
+    // Adaptive: polls faster while an auto-rebuild is in progress.
+    scheduleNextPoll();
   }
 
   if (document.readyState === 'loading') {

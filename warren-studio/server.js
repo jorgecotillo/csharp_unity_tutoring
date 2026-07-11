@@ -16,6 +16,7 @@ const { marked } = require('marked');
 const repo = require('./lib/repo');
 const chat = require('./lib/chat');
 const git = require('./lib/git');
+const build = require('./lib/build');
 const pull = require('./lib/pull');
 const oauth = require('./lib/oauth');
 const tokens = require('./lib/tokens');
@@ -197,9 +198,14 @@ app.get('/api/file', requireApiAuth, (req, res) => {
   }
 });
 
-// Build/preview status for the game pane.
+// Build/preview status for the game pane — includes live auto-build state so the
+// UI can show a "rebuilding your game" animation.
 app.get('/api/game/status', requireApiAuth, (req, res) => {
-  res.json({ available: repo.webglExists(), builtAt: repo.webglBuiltAt() });
+  res.json({
+    available: repo.webglExists(),
+    builtAt: repo.webglBuiltAt(),
+    build: build.status(),
+  });
 });
 
 // ---- Copilot chat (Phase 2: read / propose only) -------------------------
@@ -305,6 +311,21 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
       } catch (e) {
         console.error('[git] commit failed', e && e.message ? e.message : e);
         gameEdit = { changed: false, error: true };
+      }
+
+      // If the agent changed actual GAME CODE (anything under mvp_v1/, not just
+      // the spec .md), kick off a background Unity rebuild so Warren's preview
+      // updates on its own. This is fire-and-forget and single-flight+coalesced
+      // inside build.js — it never blocks this reply or the next chat message.
+      if (
+        gameEdit && gameEdit.changed && Array.isArray(gameEdit.files) &&
+        gameEdit.files.some((f) => String(f).replace(/^\.\//, '').startsWith('mvp_v1/'))
+      ) {
+        const r = build.requestBuild('chat edit by ' + username);
+        if (r && r.ok) {
+          gameEdit.rebuilding = true;
+          if (r.queued) gameEdit.rebuildQueued = true;
+        }
       }
 
       send('done', {
