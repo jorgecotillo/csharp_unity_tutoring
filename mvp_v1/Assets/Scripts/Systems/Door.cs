@@ -8,9 +8,14 @@ namespace GoblinSiege.Systems
     /// A door the Warlord opens by walking near it (spec: warlord opens doors).
     /// How it works:
     ///   1. A child SphereCollider (trigger) detects the Warlord.
-    ///   2. When detected, the blocking BoxCollider is disabled and the door
-    ///      swings open with a smooth Slerp animation (like a real hinge).
-    ///   3. Once open the door stays open for the rest of the raid.
+    ///   2. When detected, the Warlord plays a short "heave the door open" animation
+    ///      (see <see cref="WarlordController.BeginDoorOpen"/>), the blocking
+    ///      BoxCollider is disabled, and the door swings open with a smooth Slerp
+    ///      animation (like a real hinge).
+    ///   3. When the door finishes opening it UNLOCKS the fight
+    ///      (<see cref="CombatGate.Unlock"/>) — only THEN does the human garrison wake
+    ///      up and the battle begin. Until then the humans are dormant (HumanUnit).
+    ///   4. Once open the door stays open for the rest of the raid.
     /// </summary>
     public class Door : MonoBehaviour
     {
@@ -23,11 +28,20 @@ namespace GoblinSiege.Systems
         [Tooltip("How close the Warlord must get to trigger the door (world units).")]
         [SerializeField] private float triggerRadius = 2.0f;
 
+        [Tooltip("Little wind-up before the door swings, so the Warlord's shove reads first (seconds).")]
+        [SerializeField] private float windUp = 0.12f;
+
         private bool _isOpen;
         private Collider _blockCollider;
 
         private void Awake()
         {
+            // A door in the scene means "combat is gated": lock the fight now so the
+            // human garrison stays asleep until the Warlord opens THIS door. Default
+            // is unlocked, so scenes without a door are never affected. This runs
+            // fresh every raid, so it is correct across repeated play sessions.
+            CombatGate.Lock();
+
             // The BoxCollider on this GameObject is the physical door panel.
             _blockCollider = GetComponent<Collider>();
             if (_blockCollider == null)
@@ -56,7 +70,12 @@ namespace GoblinSiege.Systems
         internal void OnWarlordNear(GameObject who)
         {
             if (_isOpen) return;
-            if (who.GetComponent<WarlordController>() == null) return;
+            WarlordController warlord = who.GetComponent<WarlordController>();
+            if (warlord == null) return;
+
+            // Ask the Warlord to play its "heave the door open" animation, facing us.
+            warlord.BeginDoorOpen(transform.position);
+
             StartCoroutine(SwingOpen());
         }
 
@@ -66,6 +85,9 @@ namespace GoblinSiege.Systems
 
             // Disable the blocker immediately so the Warlord isn't stuck mid-swing.
             if (_blockCollider != null) _blockCollider.enabled = false;
+
+            // Tiny wind-up so the Warlord's shove is seen to CAUSE the swing.
+            if (windUp > 0f) yield return new WaitForSeconds(windUp);
 
             // Smooth swing around the Y axis (hinge at the door's pivot/origin).
             Quaternion startRot = transform.rotation;
@@ -80,6 +102,9 @@ namespace GoblinSiege.Systems
                 yield return null;
             }
             transform.rotation = endRot;
+
+            // The door is open — NOW the fight begins. Wake the human garrison.
+            CombatGate.Unlock();
         }
 
         private void OnDrawGizmosSelected()

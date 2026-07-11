@@ -23,6 +23,26 @@ namespace GoblinSiege.Player
         private InputAction _warhornAction;
         private Vector2 _moveInput;
 
+        // ── "Open the door" gesture ──────────────────────────────────────────
+        // The Warlord heaves the barracks door open, and ONLY THEN does the fight
+        // begin (the human garrison wakes — see Door + CombatGate + HumanUnit).
+        // The animation is a short, art-agnostic, physics-legal move: face the
+        // door, a forward "push" lunge (a sin curve, so it returns to the start —
+        // net-zero displacement), plus a gentle effort-stretch. Works on the cyan
+        // capsule fallback AND any future model, and is WebGL-safe (no Animator
+        // clips required).
+        private bool _openingDoor;
+        private float _openTimer;
+        private Vector3 _openStartPos;
+        private Vector3 _openDir;
+        private Vector3 _openStartScale;
+        private const float OpenGestureDuration = 0.5f;  // seconds
+        private const float OpenPushDistance    = 0.5f;  // metres the Warlord lunges at the door
+        private const float OpenStretchAmount   = 0.12f; // squash-stretch "effort" pulse (12%)
+
+        /// <summary>True while the Warlord is playing the open-door animation.</summary>
+        public bool IsOpeningDoor => _openingDoor;
+
         public bool WarhornUsed { get; private set; }
 
         /// <summary>Runtime injection for RaidBootstrap (no scene wiring).</summary>
@@ -90,6 +110,14 @@ namespace GoblinSiege.Player
 
         private void FixedUpdate()
         {
+            // While heaving the door open, ignore movement input and play the
+            // scripted gesture instead (see BeginDoorOpen / TickDoorOpen).
+            if (_openingDoor)
+            {
+                TickDoorOpen();
+                return;
+            }
+
             // WASD/arrows give a 2D input vector; map it to XZ world velocity
             // (input.x → world X, input.y → world Z). All motion is in FixedUpdate
             // and scaled by moveSpeed only — frame-rate independent (G5).
@@ -103,6 +131,59 @@ namespace GoblinSiege.Player
             else
             {
                 _body.linearVelocity = Vector3.zero;
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Open-the-door animation (spec: the Warlord opens the door, THEN we fight)
+        // ─────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Start the "heave the door open" animation, facing <paramref name="doorPos"/>.
+        /// Called by <see cref="GoblinSiege.Systems.Door"/> when the Warlord walks up.
+        /// During the gesture the Warlord ignores movement input, turns to the door,
+        /// and does a short forward "push" lunge with a little effort-stretch — a clear,
+        /// art-agnostic animation that reads as "opening the door" on any model.
+        /// </summary>
+        public void BeginDoorOpen(Vector3 doorPos)
+        {
+            if (_openingDoor) return;
+
+            _openStartPos   = _body != null ? _body.position : transform.position;
+            _openStartScale = transform.localScale;
+
+            // Flat (XZ) direction to the door; fall back to current facing if we're
+            // basically standing on it (avoids a zero-length LookRotation).
+            Vector3 flat = doorPos - _openStartPos;
+            flat.y = 0f;
+            _openDir = flat.sqrMagnitude > 0.0001f ? flat.normalized : transform.forward;
+
+            _openTimer   = 0f;
+            _openingDoor = true;
+        }
+
+        // Advances the door-open gesture one physics step. Frame-rate independent
+        // (Time.fixedDeltaTime) and physics-legal: a sin-curve forward lunge via
+        // MovePosition (returns to start — net-zero), a yaw to face the door, and a
+        // gentle scale "heave". Restores the pose and hands control back when done.
+        private void TickDoorOpen()
+        {
+            _body.linearVelocity = Vector3.zero; // driven by MovePosition, not velocity
+
+            _openTimer += Time.fixedDeltaTime;
+            float t = Mathf.Clamp01(_openTimer / OpenGestureDuration);
+            float pulse = Mathf.Sin(t * Mathf.PI); // 0 → 1 → 0: one smooth heave
+
+            _body.MovePosition(_openStartPos + _openDir * (pulse * OpenPushDistance));
+            _body.MoveRotation(Quaternion.LookRotation(_openDir, Vector3.up));
+            transform.localScale = _openStartScale * (1f + pulse * OpenStretchAmount);
+
+            if (_openTimer >= OpenGestureDuration)
+            {
+                // Snap cleanly back to the start pose; player control resumes next step.
+                _body.MovePosition(_openStartPos);
+                transform.localScale = _openStartScale;
+                _openingDoor = false;
             }
         }
     }

@@ -1,4 +1,5 @@
 using GoblinSiege.Core;
+using GoblinSiege.Systems;
 using UnityEngine;
 
 namespace GoblinSiege.Units
@@ -79,8 +80,30 @@ namespace GoblinSiege.Units
         protected override void FixedUpdate()
         {
             if (!IsAlive) return; // don't run the FSM after death
+
+            // GATE (spec: the Warlord opens the door, and ONLY THEN we fight): while
+            // the fight is locked, the garrison is ASLEEP. This human holds its post —
+            // no chasing, no attacking. TakeDamage below also makes it unharmable, so a
+            // goblin can't "free-hit" a sleeping defender before the door opens.
+            if (!CombatGate.HumansMayFight)
+            {
+                if (Body != null) Body.linearVelocity = Vector3.zero;
+                return;
+            }
+
             _current?.Execute();
             base.FixedUpdate();
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // GATE: a sleeping defender cannot be harmed until the Warlord opens the
+        // door and the fight begins. Once unlocked, damage flows through the base
+        // Unit exactly as before (hit-flash, death, alarm reaction, etc.).
+        // ─────────────────────────────────────────────────────────────────────
+        public override bool TakeDamage(float amount)
+        {
+            if (!CombatGate.HumansMayFight) return false;
+            return base.TakeDamage(amount);
         }
 
         internal void TransitionTo(IState next)
