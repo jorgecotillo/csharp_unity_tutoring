@@ -22,8 +22,16 @@ const os = require('os');
 const path = require('path');
 const repo = require('./repo');
 
-// Default model — strong for code, far lower premium cost than opus.
-const CHAT_MODEL = process.env.CHAT_MODEL || 'claude-sonnet-4.6';
+// Model + reasoning config for the portal chat. Jorge set this to Opus 4.8 with
+// the 1M "long_context" window and MAX reasoning — top quality, but far pricier
+// per message (~15 premium requests each vs ~1 for sonnet-4.6). All three are
+// env-overridable so cost can be dialed back WITHOUT a code change, e.g.:
+//   CHAT_MODEL=claude-sonnet-4.6   CHAT_EFFORT=high   CHAT_CONTEXT=default
+const CHAT_MODEL = process.env.CHAT_MODEL || 'claude-opus-4.8';
+// Context window tier: 'default' or 'long_context' (the 1M window).
+const CHAT_CONTEXT = process.env.CHAT_CONTEXT || 'long_context';
+// Reasoning effort: none|minimal|low|medium|high|xhigh|max.
+const CHAT_EFFORT = process.env.CHAT_EFFORT || 'max';
 
 // Which chat sessions we've already sent the kid-grounding preamble to. The
 // Copilot CLI resumes a session by its UUID (--session-id) and remembers the
@@ -166,6 +174,8 @@ function streamChat(userMessage, handlers, sessionId) {
   const args = [
     '-p', promptText,
     '--model', CHAT_MODEL,
+    ...(CHAT_CONTEXT ? ['--context', CHAT_CONTEXT] : []),
+    ...(CHAT_EFFORT ? ['--effort', CHAT_EFFORT] : []),
     '--silent',
     '--no-color',
     '--no-ask-user',
