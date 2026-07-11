@@ -269,15 +269,29 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
   // Initial comment so proxies don't buffer the first byte.
   res.write(': forging\n\n');
 
+  // Keepalive heartbeat. Copilot's first token can take 30–60s+ on a cold start
+  // (model warm-up + tool discovery). Without periodic bytes on the wire, the
+  // dev tunnel and the browser idle-kill the connection and Warren sees the
+  // frontend network error "Couldn't reach Copilot." A comment frame every 15s
+  // keeps the pipe warm; SSE clients ignore lines that start with ":".
+  const heartbeat = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (_) { /* socket gone; res.on('close') cleans up */ }
+  }, 15000);
+
   // Track completion so the disconnect handler below never kills a healthy run.
   let finished = false;
 
   const session = chat.streamChat(message, {
+    onStatus(label) {
+      if (finished) return;
+      send('status', { label: String(label || '') });
+    },
     onDelta(text) {
       send('delta', { text });
     },
     async onDone({ text, usage, model }) {
       finished = true;
+      clearInterval(heartbeat);
       const html = text ? marked.parse(text) : '';
 
       // The agent may have edited the game's files. Commit those (allow-listed
@@ -304,6 +318,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
     },
     onError(err) {
       finished = true;
+      clearInterval(heartbeat);
       console.error('[chat] error', err && err.message ? err.message : err);
       send('error', { error: "Hmm, my forge sputtered. 🔧 Give it another try in a sec!" });
       res.end();
@@ -315,6 +330,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
   // soon as express.json() finishes reading the body, which would otherwise
   // cancel the child before it ever produced output.
   res.on('close', () => {
+    clearInterval(heartbeat);
     if (!finished) session.cancel();
   });
 });

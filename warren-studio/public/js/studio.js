@@ -436,10 +436,50 @@
   async function sendChat(message) {
     addBubble('user', '<p>' + escapeHtml(message) + '</p>');
 
-    const bot = addBubble(
-      'bot thinking',
-      '<p class="thinking">🤖 Copilot is forging an answer… 🔨</p>'
-    );
+    // Build a "working" bubble with a live activity line (what Copilot is doing
+    // right now) + a seconds counter, and a separate area the answer streams
+    // into. This is what turns the old frozen "thinking…" box into something
+    // Warren can actually watch. ⚔️
+    const bot = addBubble('bot working', '');
+    bot.innerHTML = '';
+
+    const statusRow = document.createElement('div');
+    statusRow.className = 'chat-status';
+    const spin = document.createElement('span');
+    spin.className = 'status-spin';
+    spin.textContent = '⚙️';
+    const label = document.createElement('span');
+    label.className = 'status-label';
+    label.textContent = '🤖 Warming up the forge…';
+    const timeEl = document.createElement('span');
+    timeEl.className = 'status-time';
+    statusRow.appendChild(spin);
+    statusRow.appendChild(label);
+    statusRow.appendChild(timeEl);
+
+    const stream = document.createElement('div');
+    stream.className = 'chat-stream';
+
+    bot.appendChild(statusRow);
+    bot.appendChild(stream);
+    scrollChat();
+
+    // Seconds counter so the bubble is visibly alive even during a long, quiet
+    // stretch (cold model start, big file edit) when no events are arriving.
+    const started = Date.now();
+    function tick() {
+      const secs = Math.floor((Date.now() - started) / 1000);
+      timeEl.textContent = secs > 0 ? '· ' + secs + 's' : '';
+    }
+    tick();
+    const timer = setInterval(tick, 1000);
+    let timerStopped = false;
+    function stopTimer() {
+      if (timerStopped) return;
+      timerStopped = true;
+      clearInterval(timer);
+    }
+
     let streamed = '';
     let gotDelta = false;
 
@@ -453,6 +493,7 @@
 
       // Non-streaming error (e.g. 400/429) comes back as JSON, not SSE.
       if (!res.ok) {
+        stopTimer();
         let msg = 'Something went wrong. Try again! 🔧';
         try {
           const body = await res.json();
@@ -484,16 +525,21 @@
           const parsed = parseSseFrame(frame);
           if (!parsed) continue;
 
-          if (parsed.event === 'delta') {
+          if (parsed.event === 'status') {
+            // Live activity: "📖 Reading Enemy.cs", "✏️ Editing Player.cs", …
+            const text = parsed.data && parsed.data.label;
+            if (text) label.textContent = text;
+            scrollChat();
+          } else if (parsed.event === 'delta') {
             if (!gotDelta) {
               gotDelta = true;
-              bot.className = 'chat-bubble bot';
-              bot.textContent = '';
+              label.textContent = '✍️ Writing the answer…';
             }
             streamed += (parsed.data && parsed.data.text) || '';
-            bot.textContent = streamed;
+            stream.textContent = streamed;
             scrollChat();
           } else if (parsed.event === 'done') {
+            stopTimer();
             bot.className = 'chat-bubble bot';
             const html = parsed.data && parsed.data.html;
             if (html) bot.innerHTML = html;
@@ -508,6 +554,7 @@
             }
             scrollChat();
           } else if (parsed.event === 'error') {
+            stopTimer();
             bot.className = 'chat-bubble bot';
             const errMsg = (parsed.data && parsed.data.error) || 'My forge sputtered. 🔧 Try again!';
             bot.innerHTML = '<p class="chat-error">' + escapeHtml(errMsg) + '</p>';
@@ -516,10 +563,12 @@
         }
       }
     } catch (err) {
+      stopTimer();
       bot.className = 'chat-bubble bot';
       bot.innerHTML = '<p class="chat-error">Couldn\'t reach Copilot. 📡 Check your connection and try again!</p>';
       scrollChat();
     } finally {
+      stopTimer();
       setChatBusy(false);
     }
   }

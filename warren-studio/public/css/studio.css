@@ -626,6 +626,59 @@ body {
   font-style: italic;
 }
 
+/* ---- Live "what Copilot is doing" activity line ---- */
+.chat-bubble.bot.working {
+  border-color: var(--accent-purple, #bc8cff);
+}
+
+.chat-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted, #8b949e);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.chat-status .status-spin {
+  display: inline-block;
+  font-style: normal;
+  animation: wgs-spin 1.6s linear infinite;
+}
+
+.chat-status .status-label {
+  color: var(--accent-purple, #bc8cff);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.chat-status .status-time {
+  color: var(--muted, #8b949e);
+  font-variant-numeric: tabular-nums;
+  font-style: normal;
+}
+
+/* Streamed answer text sits just below the activity line while it types out. */
+.chat-stream {
+  white-space: pre-wrap;
+  margin-top: 8px;
+}
+.chat-stream:empty {
+  margin-top: 0;
+}
+
+@keyframes wgs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-status .status-spin {
+    animation: none;
+  }
+}
+
 .chat-error {
   color: var(--accent-red, #f85149);
   margin: 0;

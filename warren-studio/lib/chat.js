@@ -99,6 +99,51 @@ function buildPrompt(userMessage) {
   ].join('\n');
 }
 
+// ---- Live activity → kid-friendly status labels --------------------------
+// The CLI's JSON stream emits tool + reasoning events while it works. We turn
+// those into short, upbeat one-liners ("📖 Reading Enemy.cs", "✏️ Editing
+// PlayerController.cs") so Warren can SEE what Copilot is doing instead of
+// staring at a frozen "thinking" bubble.
+
+function baseName(p) {
+  if (!p || typeof p !== 'string') return '';
+  const parts = p.split(/[\\/]/);
+  return parts[parts.length - 1] || p;
+}
+
+// Map one tool.execution_start event to a friendly status line.
+function friendlyToolStatus(data) {
+  const tool = String((data && data.toolName) || '').toLowerCase();
+  const args = (data && data.arguments) || {};
+  const file = baseName(args.path || args.filePath || args.file || args.notebookPath || '');
+  if (/^(view|read|open|cat|head|tail|get_file|read_file)$/.test(tool)) {
+    return file ? `📖 Reading ${file}` : '📖 Reading your game…';
+  }
+  if (/^(create|new|create_file|createfile|write_file)$/.test(tool)) {
+    return file ? `✨ Creating ${file}` : '✨ Creating a new file…';
+  }
+  if (/(edit|str_replace|write|insert|apply_patch|patch|replace)/.test(tool)) {
+    return file ? `✏️ Editing ${file}` : '✏️ Editing your game…';
+  }
+  if (/(grep|glob|search|find|ripgrep)/.test(tool)) {
+    return '🔍 Searching through the code…';
+  }
+  if (/(ls|list|tree|dir)/.test(tool)) {
+    return '📂 Looking around the project…';
+  }
+  return file ? `🔧 Working on ${file}…` : '🔧 Working on your game…';
+}
+
+// Map one assistant.reasoning event (the model's plan) to a short status. We
+// show a trimmed first line so it stays readable for a middle-schooler.
+function reasoningStatus(content) {
+  if (!content || typeof content !== 'string') return '🧠 Thinking…';
+  const firstLine = content.split('\n').map((s) => s.trim()).find(Boolean) || '';
+  if (!firstLine) return '🧠 Thinking…';
+  const clipped = firstLine.length > 90 ? firstLine.slice(0, 89).trimEnd() + '…' : firstLine;
+  return '💭 ' + clipped;
+}
+
 // Spawn the CLI for one message. Calls handlers.onDelta(text) as tokens stream,
 // handlers.onDone({text, usage, model}) on success, handlers.onError(err) on
 // failure. Returns { cancel() } to kill the child if the client disconnects.
@@ -106,6 +151,7 @@ function streamChat(userMessage, handlers, sessionId) {
   const onDelta = (handlers && handlers.onDelta) || (() => {});
   const onDone = (handlers && handlers.onDone) || (() => {});
   const onError = (handlers && handlers.onError) || (() => {});
+  const onStatus = (handlers && handlers.onStatus) || (() => {});
 
   // First turn of a session → send the full grounding preamble. Later turns →
   // send Warren's raw message and let the CLI's own session memory carry the
@@ -171,6 +217,15 @@ function streamChat(userMessage, handlers, sessionId) {
         fullText += piece;
         onDelta(piece);
       }
+    } else if (type === 'assistant.reasoning') {
+      // The model narrating its plan ("Let me read the EnemyAI script…").
+      onStatus(reasoningStatus(evt.data && evt.data.content));
+    } else if (type === 'tool.execution_start') {
+      // The agent actually touching a file — the most concrete signal we have.
+      onStatus(friendlyToolStatus(evt.data));
+    } else if (type === 'assistant.message_start') {
+      // About to write the final answer text (deltas follow immediately).
+      onStatus('✍️ Writing the answer…');
     } else if (type === 'assistant.message') {
       // Authoritative full text for the turn (also covers a non-streaming run).
       if (evt.data && typeof evt.data.content === 'string' &&
