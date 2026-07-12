@@ -73,6 +73,50 @@ namespace GoblinSiege.Units
         }
 
         // ═══════════════════════════════════════════════════════════════════
+        // DamageEnemiesInArc — the Warlord's powerful melee SLASH (player action)
+        // ═══════════════════════════════════════════════════════════════════
+        // Deals <paramref name="damage"/> to EVERY living enemy of the attacker
+        // that stands within <paramref name="range"/> metres AND inside a forward
+        // arc (a wide cone in front of the swing). The arc is defined by
+        // <paramref name="minDot"/> = cos(halfAngle): 1 = straight ahead only,
+        // 0 = a 180° half-circle, -1 = all around. All distance/angle math is on
+        // the flat XZ plane (G2), matching the rest of the game.
+        //
+        // Iterating BACKWARDS is defensive: TakeDamage can kill a unit, and a
+        // dying unit may later Unregister; walking the list high→low keeps our
+        // indices valid regardless. Returns how many foes were struck.
+        // ═══════════════════════════════════════════════════════════════════
+        /// <summary>Hits every enemy of <paramref name="attacker"/> inside a forward arc. Returns hit count.</summary>
+        public static int DamageEnemiesInArc(Unit attacker, Vector3 forward, float range, float minDot, float damage)
+        {
+            if (attacker == null) return 0;
+
+            Vector3 origin = attacker.transform.position;
+            Vector3 fwd = forward; fwd.y = 0f;
+            if (fwd.sqrMagnitude < 0.0001f) fwd = attacker.transform.forward;
+            fwd.Normalize();
+
+            float rangeSqr = range * range;
+            int hits = 0;
+
+            for (int i = Units.Count - 1; i >= 0; i--)
+            {
+                Unit u = Units[i];
+                if (u == null || !u.IsAlive || u.Team == attacker.Team) continue;
+
+                Vector3 to = u.transform.position - origin; to.y = 0f;
+                float sqr = to.x * to.x + to.z * to.z;
+                if (sqr > rangeSqr) continue;
+                // Angle test (skip when standing right on top of us to avoid NaN).
+                if (sqr > 0.0001f && Vector3.Dot(fwd, to / Mathf.Sqrt(sqr)) < minDot) continue;
+
+                u.TakeDamage(damage);
+                hits++;
+            }
+            return hits;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
         // CountAlive — UPDATED (T5) to skip non-objective raiders
         // ═══════════════════════════════════════════════════════════════════
         // Currently unused, but defensive: if anyone counts Team.Goblin

@@ -193,10 +193,11 @@ The climax raid must be the **hardest** moment — biggest quota, fastest alarm,
 | Sapper | 18 | 4 | 2 | breach gates/walls (BreachTime ~8s) | Demo Charge (25s) | Lvl 2 |
 | Wolfrider | 30 | 12 | fast | flank / hit cache fast | Wolf-Charge: dash + knockback (18s) | Lvl 4 |
 | Shaman | 35 | 0 | slow | heal/revive squad | Battle-Howl: heal AoE (20s) | Lvl 6 |
-| **Warlord (you)** | 120 | 20 | 3 | hero + aura | **Rally** (regroup+morale) & **Warhorn** (alarm −10%, once/raid) | Lvl 1 |
+| **Warlord (you)** | 120 | 20 | 3 | hero + aura | **Rally** (regroup+morale), **Warhorn** (alarm −10%, once/raid) & **Warlord's Slash** (Spacebar: a mighty melee sweep) | Lvl 1 |
 
 - **Start:** Warlord + **3 squads** (e.g., 2 Grunt squads of 5, 1 Spearthrower squad of 5). Squad cap starts at 3, upgradable in War-Camp.
 - **Warhorn** is the player's one safety valve against the alarm — a deliberate, scarce "buy time" button (use it for the vault grab or the extraction sprint).
+- **Warlord's Slash (Spacebar)** is the Warlord's hands-on attack: a very powerful, wide melee sweep that carves through every human in a cone in front of him (50 damage — a one-hit kill on any garrison unit), on a short cooldown. Lead the charge yourself, complete with a swing lunge, a heavy BOOM, and a screen shake for impact. ⚔️
 
 ### Human garrison (the obstacle that grows)
 Reuse [GOBLIN_SIEGE_SPEC.md](GOBLIN_SIEGE_SPEC.md) enemy stats; introduction order by act:

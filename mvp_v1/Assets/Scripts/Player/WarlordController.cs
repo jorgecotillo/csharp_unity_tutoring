@@ -1,4 +1,6 @@
 using GoblinSiege.Systems;
+using GoblinSiege.UI;
+using GoblinSiege.Units;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -21,7 +23,35 @@ namespace GoblinSiege.Player
         private PlayerInput _input;
         private InputAction _moveAction;
         private InputAction _warhornAction;
+        private InputAction _slashAction;
         private Vector2 _moveInput;
+
+        // ── Warlord's mighty melee SLASH ─────────────────────────────────────
+        // A powerful, wide sweep that carves through every human standing in a
+        // cone in front of the Warlord. It's the player's hands-on combat button
+        // (Spacebar). The Warlord isn't a passive commander any more — lead the
+        // charge and cut down the garrison yourself! ⚔️
+        //
+        // Numbers are deliberately BIG so the slash feels heroic: 50 damage one-
+        // shots every human type (25–45 HP), 3.2m reach is far longer than a
+        // normal 1.2m melee, and the ~120° cone lets one swing hit a whole cluster.
+        // A short cooldown keeps it from being spammed into a lawnmower.
+        [SerializeField] private float slashDamage      = 50f;   // one-shots every human
+        [SerializeField] private float slashRange       = 3.2f;  // metres of reach
+        [SerializeField] private float slashCooldown    = 0.6f;  // seconds between swings
+        private const float SlashHalfAngleCos = 0.5f;            // cos(60°) → a 120° cone
+        private const float SlashDuration     = 0.28f;           // swing animation length
+        private const float SlashLungeDist    = 0.45f;           // forward step during the swing
+        private const float SlashStretch      = 0.18f;           // squash-stretch "oomph"
+
+        private WarlordUnit _warlordUnit;   // combat proxy on this same GameObject
+        private ScreenShake _screenShake;   // cached camera shake for slash punch
+        private float _slashCooldownTimer;
+        private bool _slashing;
+        private float _slashTimer;
+        private Vector3 _slashStartPos;
+        private Vector3 _slashDir;
+        private Vector3 _slashStartScale;
 
         // ── "Open the door" gesture ──────────────────────────────────────────
         // The Warlord heaves the barracks door open, and ONLY THEN does the fight
@@ -80,16 +110,23 @@ namespace GoblinSiege.Player
             gameObject.layer = 8;
 
             _input = GetComponent<PlayerInput>();
+
+            // The combat proxy lives on this same GameObject (added by RaidBootstrap).
+            // We need it as the "attacker" identity for the slash so it only hits the
+            // Warlord's enemies (humans), never friendly goblins.
+            _warlordUnit = GetComponent<WarlordUnit>();
         }
 
         private void OnEnable()
         {
             _moveAction = _input.actions["Move"];
             _warhornAction = _input.actions["Warhorn"];
+            _slashAction = _input.actions["Slash"];
 
             _moveAction.performed += OnMove;
             _moveAction.canceled += OnMove;
             _warhornAction.performed += OnWarhorn;
+            _slashAction.performed += OnSlash;
         }
 
         private void OnDisable()
@@ -101,6 +138,8 @@ namespace GoblinSiege.Player
             }
             if (_warhornAction != null)
                 _warhornAction.performed -= OnWarhorn;
+            if (_slashAction != null)
+                _slashAction.performed -= OnSlash;
         }
 
         private void OnMove(InputAction.CallbackContext ctx) => _moveInput = ctx.ReadValue<Vector2>();
@@ -112,13 +151,65 @@ namespace GoblinSiege.Player
             alarm.Reduce(warhornAlarmReduction);
         }
 
+        // ── SLASH! The Warlord's powerful melee sweep ────────────────────────
+        // Fires on Spacebar. Respects a short cooldown and won't interrupt the
+        // open-door gesture. Damage lands the instant you swing (a wide forward
+        // cone), then a quick lunge+stretch animation sells the impact, plus a
+        // meaty BOOM and a camera shake so it feels devastating.
+        private void OnSlash(InputAction.CallbackContext ctx)
+        {
+            if (_openingDoor || _slashing) return;
+            if (_slashCooldownTimer > 0f) return;
+            if (_warlordUnit == null || !_warlordUnit.IsAlive) return;
+
+            _slashCooldownTimer = slashCooldown;
+
+            // Swing in the direction the Warlord is facing (his travel/last facing).
+            Vector3 dir = transform.forward; dir.y = 0f;
+            if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
+            dir.Normalize();
+
+            // Carve every enemy in the forward cone. Damage is applied right away.
+            CombatRegistry.DamageEnemiesInArc(_warlordUnit, dir, slashRange, SlashHalfAngleCos, slashDamage);
+
+            // Juice: a heavy swing sound and a punchy camera shake.
+            SfxManager.PlayExplosion(0.7f);
+            EnsureScreenShake();
+            _screenShake?.Shake();
+
+            // Kick off the visible swing animation (see TickSlash).
+            _slashStartPos   = _body != null ? _body.position : transform.position;
+            _slashStartScale = transform.localScale;
+            _slashDir        = dir;
+            _slashTimer      = 0f;
+            _slashing        = true;
+        }
+
+        // Lazily find the camera's ScreenShake once (cheap, and optional — the
+        // slash still works fine if the scene has no ScreenShake component).
+        private void EnsureScreenShake()
+        {
+            if (_screenShake == null)
+                _screenShake = FindFirstObjectByType<ScreenShake>();
+        }
+
         private void FixedUpdate()
         {
+            // Tick down the slash cooldown every physics step (frame-rate safe, G5).
+            if (_slashCooldownTimer > 0f) _slashCooldownTimer -= Time.fixedDeltaTime;
+
             // While heaving the door open, ignore movement input and play the
             // scripted gesture instead (see BeginDoorOpen / TickDoorOpen).
             if (_openingDoor)
             {
                 TickDoorOpen();
+                return;
+            }
+
+            // While mid-swing, play the slash animation and hold movement.
+            if (_slashing)
+            {
+                TickSlash();
                 return;
             }
 
@@ -188,6 +279,31 @@ namespace GoblinSiege.Player
                 _body.MovePosition(_openStartPos);
                 transform.localScale = _openStartScale;
                 _openingDoor = false;
+            }
+        }
+
+        // Advances the slash swing one physics step. Physics-legal like the door
+        // gesture: a sin-curve forward lunge via MovePosition (returns to start —
+        // net-zero displacement), keeps facing the swing direction, and a quick
+        // squash-stretch "oomph". Damage was already applied on the button press
+        // (OnSlash) — this is pure visual feedback. Restores the pose when done.
+        private void TickSlash()
+        {
+            _body.linearVelocity = Vector3.zero; // driven by MovePosition, not velocity
+
+            _slashTimer += Time.fixedDeltaTime;
+            float t = Mathf.Clamp01(_slashTimer / SlashDuration);
+            float pulse = Mathf.Sin(t * Mathf.PI); // 0 → 1 → 0: one crisp swing
+
+            _body.MovePosition(_slashStartPos + _slashDir * (pulse * SlashLungeDist));
+            _body.MoveRotation(Quaternion.LookRotation(_slashDir, Vector3.up));
+            transform.localScale = _slashStartScale * (1f + pulse * SlashStretch);
+
+            if (_slashTimer >= SlashDuration)
+            {
+                _body.MovePosition(_slashStartPos);
+                transform.localScale = _slashStartScale;
+                _slashing = false;
             }
         }
     }

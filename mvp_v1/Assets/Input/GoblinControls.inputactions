@@ -24,6 +24,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Slash",
+                    "type": "Button",
+                    "id": "a1b2c3d4-0000-0000-0000-000000000019",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Point",
                     "type": "Value",
                     "id": "a1b2c3d4-0000-0000-0000-000000000012",
@@ -206,6 +215,17 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "Warhorn",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b1000000-0000-0000-0000-000000000023",
+                    "path": "<Keyboard>/space",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Slash",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
