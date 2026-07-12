@@ -431,17 +431,42 @@ namespace GoblinSiege.Bootstrap
             doorGo.transform.position = pos;
             doorGo.transform.localScale = new Vector3(2.0f, 2.2f, 0.2f);
 
-            // Earthy wood-brown tint so the door reads as scenery, not a unit (G4).
+            // Bold, glowing door tint so it POPS out from the plain-brown wall and the
+            // watchtower pillars around it — Warren should instantly spot THE door (G4).
+            var doorColor = new Color(0.75f, 0.30f, 0.18f); // warm reddish "big door" wood
             var rend = doorGo.GetComponent<Renderer>();
             if (rend != null)
             {
                 var mat = new Material(rend.sharedMaterial);
-                mat.color = VisualLibrary.WoodBrown;
+                mat.color = doorColor;
+                // A soft glow so the door reads as special/interactive, not scenery.
+                mat.EnableKeyword("_EMISSION");
+                if (mat.HasProperty("_EmissionColor"))
+                    mat.SetColor("_EmissionColor", doorColor * 0.45f);
                 rend.material = mat;
             }
 
             // Attach the gameplay Door component (adds its own trigger child).
             doorGo.AddComponent<Door>();
+
+            // A glowing golden handle so it unmistakably reads as a DOOR, not a wall.
+            var handle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            handle.name = "DoorHandle";
+            handle.transform.SetParent(doorGo.transform, worldPositionStays: false);
+            // Offset to one side of the panel, at grab height (local space of the door).
+            handle.transform.localPosition = new Vector3(0.30f, 0.10f, -0.6f);
+            handle.transform.localScale = new Vector3(0.12f, 0.11f, 1.1f);
+            var handleRend = handle.GetComponent<Renderer>();
+            if (handleRend != null)
+            {
+                var handleMat = new Material(handleRend.sharedMaterial);
+                handleMat.color = VisualLibrary.LootGold;
+                handleMat.EnableKeyword("_EMISSION");
+                if (handleMat.HasProperty("_EmissionColor"))
+                    handleMat.SetColor("_EmissionColor", VisualLibrary.LootGold * 0.6f);
+                handleRend.material = handleMat;
+            }
+            Object.Destroy(handle.GetComponent<Collider>()); // decoration only
 
             // G4 interactive hint: a pulsing gold disc on the floor in front of the door
             // so Warren can see "something important is here — walk up to it!".
