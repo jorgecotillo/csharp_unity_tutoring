@@ -210,8 +210,17 @@ function startBuild(reason) {
   // blocks the event loop; on any error we default to the reliable cold path.
   checkDaemonAlive().then((alive) => {
     if (!state.building) return; // finished/aborted while we were checking
-    if (alive) {
-      console.log('[build] using persistent daemon', reason ? `(${reason})` : '');
+    // Use the daemon when its heartbeat is FRESH, or when its PROCESS is alive but
+    // momentarily quiet — it legitimately goes silent while booting (after a
+    // watchdog respawn) or mid domain-reload (recompiling Warren's edits). Writing
+    // the request is safe either way: the daemon reads request.txt from disk as
+    // soon as its update loop runs, and daemonBuild's PID-liveness check only
+    // cold-falls-back if the process is truly GONE. We ONLY cold-build when there
+    // is no daemon process at all — otherwise a cold Unity would collide with the
+    // daemon on the project lock and fail.
+    const procAlive = pidAlive(readDaemonPid());
+    if (alive || procAlive) {
+      console.log('[build] using persistent daemon' + (alive ? '' : ' (warming up)'), reason ? `(${reason})` : '');
       daemonBuild(reason);
     } else {
       coldBuild(reason);

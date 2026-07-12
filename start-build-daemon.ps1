@@ -41,6 +41,12 @@ if (-not (Test-Path $UnityExe)) {
 
 New-Item -ItemType Directory -Path $DaemonDir -Force | Out-Null
 
+# Clear the "deliberately stopped" sentinel so the studio watchdog is allowed to
+# keep this daemon alive (respawn it if it ever crashes). stop-build-daemon.ps1
+# writes this sentinel back so a manual stop is NOT fought by the watchdog.
+$Disabled = Join-Path $DaemonDir 'daemon.disabled'
+if (Test-Path $Disabled) { Remove-Item $Disabled -Force -ErrorAction SilentlyContinue }
+
 # Refuse to start a second daemon / collide with a one-shot build on the lock.
 $existing = Get-CimInstance Win32_Process -Filter "Name='Unity.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match '-batchmode' -and $_.CommandLine -match 'mvp_v1' }
