@@ -68,6 +68,7 @@ namespace GoblinSiege.Bootstrap
         private Text _goldText;
         private Text _alarmText;
         private Text _resultText;
+        private Image _resultBg;
         private float _barWidth = 320f;
 
         // T6: Onboarding UI — goal banner fades out, controls card stays.
@@ -674,15 +675,33 @@ namespace GoblinSiege.Bootstrap
                 new Color(0.3f, 0.8f, 0.3f), out _alarmFill, out _alarmFillImg);
             _alarmText = MakeLabel(canvasGo.transform, font, new Vector2(20f, -64f), "Alarm 0%");
 
-            // Centered result text (hidden until raid ends).
+            // Result text — anchored near the TOP so it never covers the battlefield
+            // in the middle of the screen (Warren: "the center text blocks the game").
+            // Hidden until the raid ends.
             _resultText = MakeLabel(canvasGo.transform, font, new Vector2(0f, 0f), "");
             var rt = _resultText.rectTransform;
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = Vector2.zero;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.90f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -10f);
             rt.sizeDelta = new Vector2(700f, 120f);
-            _resultText.alignment = TextAnchor.MiddleCenter;
+            _resultText.alignment = TextAnchor.UpperCenter;
             _resultText.fontSize = 30;
+
+            // A dark, see-through backing panel behind the banner so the words stay
+            // readable over the game without hiding it. Sits behind the text.
+            var resultBgGo = new GameObject("ResultBanner");
+            resultBgGo.transform.SetParent(canvasGo.transform, false);
+            resultBgGo.transform.SetSiblingIndex(_resultText.transform.GetSiblingIndex());
+            var resultBg = resultBgGo.AddComponent<Image>();
+            resultBg.color = new Color(0f, 0f, 0f, 0.55f);
+            resultBg.raycastTarget = false; // never block clicks
+            resultBg.enabled = false;       // hidden until the raid actually ends
+            _resultBg = resultBg;
+            var resultBgRt = resultBg.rectTransform;
+            resultBgRt.anchorMin = resultBgRt.anchorMax = new Vector2(0.5f, 0.90f);
+            resultBgRt.pivot = new Vector2(0.5f, 1f);
+            resultBgRt.anchoredPosition = new Vector2(0f, -4f);
+            resultBgRt.sizeDelta = new Vector2(720f, 132f);
 
             // ═══════════════════════════════════════════════════════════════════
             // T6: ONBOARDING — Goal Banner (auto-fades) + Controls Card (persistent)
@@ -926,6 +945,7 @@ namespace GoblinSiege.Bootstrap
                     RaidResult.LostAlarmMaxed => "DEFEAT\nYou reached for one more chest. The horns never stopped.",
                     _ => "RAID OVER"
                 };
+                if (_resultBg != null) _resultBg.enabled = true; // show the backing now
             };
         }
 
