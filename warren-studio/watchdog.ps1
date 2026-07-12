@@ -79,6 +79,7 @@ function Test-AnyUnity {
 }
 
 while ($true) {
+ try {
   Set-Content -Path $heartbeat -Value (Get-Date -Format o)
 
   # 1) SERVER - relaunch detached if the local health endpoint is down.
@@ -133,6 +134,10 @@ while ($true) {
       }
     }
   }
+ } catch {
+  # A single cycle must NEVER kill the supervisor. Swallow any transient error
+  # (a flaky CIM query, a locked file, a launch hiccup) and try again next tick.
+ }
 
   Start-Sleep -Seconds $IntervalSec
 }
