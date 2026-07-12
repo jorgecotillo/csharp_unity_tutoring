@@ -4,6 +4,7 @@ using GoblinSiege.Player;
 using GoblinSiege.Systems;
 using GoblinSiege.Units;
 using GoblinSiege.Visual;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -131,8 +132,11 @@ namespace GoblinSiege.Bootstrap
             GameObject extractionGo = VisualLibrary.Spawn(VisualLibrary.KeyExtraction,
                 new Vector3(0f, 0.02f, 0f), Quaternion.identity, transform);
             var extraction = extractionGo.AddComponent<ExtractionZone>();
-            // T1 polish: gentle pulse draws the eye to the goal without distracting.
+            // T1 polish: gentle pulse + breathing glow draws the eye to the goal.
             extractionGo.AddComponent<ZonePulse>();
+            // Frame the flat marker as a real "escape gate": glowing corner beacons
+            // plus a floating ESCAPE banner so Warren instantly reads it as the goal.
+            BuildExtractionDecor(new Vector3(0f, 0f, 0f), transform);
 
             // --- Garrison spawn points (north / +Z) ---
             Transform[] spawns =
@@ -926,10 +930,88 @@ namespace GoblinSiege.Bootstrap
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // T1: ZonePulse — Gentle extraction zone pulse for visual polish
+        // Extraction decor — turns the flat blue marker into a readable "escape gate".
+        // Glowing corner beacons frame the pad and a floating banner names the goal.
+        // All WebGL-safe: primitives, Mathf/Time, MaterialPropertyBlock — no I/O.
         // ═══════════════════════════════════════════════════════════════════════════
-        // Oscillates the attached GameObject's localScale around its original value.
-        // WebGL-SAFE: uses only Update(), Mathf, Time and Transform.
+        private void BuildExtractionDecor(Vector3 center, Transform parent)
+        {
+            // Pad footprint matches KeyExtraction scale (5.0 x 2.5): x ±2.5, z ±1.25.
+            Vector3[] corners =
+            {
+                new Vector3(-2.4f, 0f, -1.15f),
+                new Vector3( 2.4f, 0f, -1.15f),
+                new Vector3(-2.4f, 0f,  1.15f),
+                new Vector3( 2.4f, 0f,  1.15f),
+            };
+            foreach (Vector3 c in corners)
+                BuildBeaconPost(center + c, parent);
+
+            BuildEscapeLabel(center + new Vector3(0f, 2.4f, 0f), parent);
+        }
+
+        // A thin glowing post capped by a floating, pulsing orb — a "beacon".
+        private void BuildBeaconPost(Vector3 groundPos, Transform parent)
+        {
+            var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            post.name = "ExtractionBeacon";
+            post.transform.SetParent(parent);
+            post.transform.localScale = new Vector3(0.14f, 0.8f, 0.14f); // ~1.6m tall, thin
+            post.transform.position = new Vector3(groundPos.x, 0.8f, groundPos.z);
+            Object.Destroy(post.GetComponent<Collider>());
+            TintEmissive(post, VisualLibrary.ExtractionBlue, 0.5f);
+
+            // Glowing orb on top (kept a separate, uniformly-scaled object so the
+            // sphere never gets squashed by the thin post's non-uniform scale).
+            var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            orb.name = "BeaconOrb";
+            orb.transform.SetParent(parent);
+            orb.transform.position = new Vector3(groundPos.x, 1.75f, groundPos.z);
+            orb.transform.localScale = Vector3.one * 0.34f;
+            Object.Destroy(orb.GetComponent<Collider>());
+            TintEmissive(orb, new Color(0.45f, 0.85f, 1f), 1.4f);
+            orb.AddComponent<BeaconGlow>();
+        }
+
+        // Floating "ESCAPE" banner that always faces the camera (billboard).
+        private void BuildEscapeLabel(Vector3 pos, Transform parent)
+        {
+            var go = new GameObject("ExtractionLabel");
+            go.transform.SetParent(parent);
+            go.transform.position = pos;
+
+            var tmp = go.AddComponent<TextMeshPro>();
+            tmp.text = "\u25B2 ESCAPE \u25B2";
+            tmp.fontSize = 6f;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = new Color(0.6f, 0.92f, 1f);
+
+            var rt = tmp.GetComponent<RectTransform>();
+            if (rt != null) rt.sizeDelta = new Vector2(10f, 2.5f);
+
+            go.AddComponent<Billboard>();
+        }
+
+        // Clone the shared material and give it a bold emissive tint so a prop POPS.
+        private static void TintEmissive(GameObject go, Color color, float glow)
+        {
+            var rend = go.GetComponent<Renderer>();
+            if (rend == null) return;
+            var mat = new Material(rend.sharedMaterial);
+            mat.color = color;
+            mat.EnableKeyword("_EMISSION");
+            if (mat.HasProperty("_EmissionColor"))
+                mat.SetColor("_EmissionColor", color * glow);
+            rend.material = mat;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // T1: ZonePulse — Gentle extraction zone pulse + breathing glow for polish
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Oscillates the attached GameObject's localScale AND its emission glow around
+        // the original values. WebGL-SAFE: Update(), Mathf, Time, Transform, and a
+        // MaterialPropertyBlock (so it never mutates the shared role material).
         //
         // GUARDRAIL G5: the oscillation is a function of Time.time (absolute clock),
         // NOT a per-frame accumulator — so the pulse speed is identical at any frame
@@ -938,19 +1020,92 @@ namespace GoblinSiege.Bootstrap
         private class ZonePulse : MonoBehaviour
         {
             private Vector3 _baseScale;
+            private Renderer _renderer;
+            private MaterialPropertyBlock _mpb;
+            private Color _glowColor;
+            private static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
             private const float Amplitude = 0.05f;  // ±5% scale variation
-            private const float Frequency = 2f;     // cycles per second
+            private const float Frequency = 1.2f;   // cycles per second
 
             private void Start()
             {
                 _baseScale = transform != null ? transform.localScale : Vector3.one;
+                _renderer = GetComponent<Renderer>();
+                _mpb = new MaterialPropertyBlock();
+                _glowColor = VisualLibrary.ExtractionBlue;
             }
 
             private void Update()
             {
                 if (transform == null) return;
-                float pulse = 1f + Amplitude * Mathf.Sin(Time.time * Frequency * Mathf.PI * 2f);
-                transform.localScale = _baseScale * pulse;
+                float t = Mathf.Sin(Time.time * Frequency * Mathf.PI * 2f); // -1..1
+                transform.localScale = _baseScale * (1f + Amplitude * t);
+
+                if (_renderer != null)
+                {
+                    _renderer.GetPropertyBlock(_mpb);
+                    float glow = 0.35f + 0.65f * (t * 0.5f + 0.5f); // 0.35..1.0
+                    _mpb.SetColor(EmissionId, _glowColor * glow);
+                    _renderer.SetPropertyBlock(_mpb);
+                }
+            }
+        }
+
+        // A beacon orb: gentle vertical bob + a pulsing glow. Each orb is phase-shifted
+        // by its world position so the four corners shimmer out of sync (more alive).
+        private class BeaconGlow : MonoBehaviour
+        {
+            private Renderer _renderer;
+            private MaterialPropertyBlock _mpb;
+            private Color _base;
+            private float _baseY;
+            private float _phase;
+            private static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
+
+            private void Start()
+            {
+                _renderer = GetComponent<Renderer>();
+                _mpb = new MaterialPropertyBlock();
+                _base = new Color(0.45f, 0.85f, 1f);
+                _baseY = transform.position.y;
+                _phase = transform.position.x + transform.position.z;
+            }
+
+            private void Update()
+            {
+                float t = Mathf.Sin(Time.time * 1.5f + _phase); // -1..1
+                Vector3 p = transform.position;
+                p.y = _baseY + 0.12f * t;
+                transform.position = p;
+
+                if (_renderer != null)
+                {
+                    _renderer.GetPropertyBlock(_mpb);
+                    float glow = 1.0f + 0.8f * (t * 0.5f + 0.5f);
+                    _mpb.SetColor(EmissionId, _base * glow);
+                    _renderer.SetPropertyBlock(_mpb);
+                }
+            }
+        }
+
+        // Keeps a world-space label facing the camera so text is always readable.
+        private class Billboard : MonoBehaviour
+        {
+            private Transform _cam;
+
+            private void Start()
+            {
+                if (Camera.main != null) _cam = Camera.main.transform;
+            }
+
+            private void LateUpdate()
+            {
+                if (_cam == null)
+                {
+                    if (Camera.main == null) return;
+                    _cam = Camera.main.transform;
+                }
+                transform.rotation = Quaternion.LookRotation(transform.position - _cam.position);
             }
         }
     }
