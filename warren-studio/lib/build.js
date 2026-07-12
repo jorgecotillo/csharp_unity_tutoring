@@ -60,6 +60,45 @@ function fileExists(p) {
   try { return fs.existsSync(p); } catch (_) { return false; }
 }
 
+// Is a Unity build already running? Guards against launching a SECOND concurrent
+// Unity build (they'd fight over the project's Library lock) — e.g. if the node
+// server was restarted mid-build, or someone ran refresh-preview.ps1 by hand.
+// ASYNC (spawn, never execSync) so it NEVER blocks the event loop, even when
+// tasklist is slow under a build's CPU/disk load. Only ever called off the
+// request path (startup + the adopt poller), never from /api/game/status.
+//
+// CRITICAL: this must match ONLY a headless -batchmode WebGL build of THIS
+// game (mvp_v1) — NOT an interactive Unity Editor the user may have open on
+// another project. A plain tasklist can't tell them apart (both are Unity.exe),
+// so we query the process COMMAND LINE via CIM and require '-batchmode' + the
+// 'mvp_v1' project. Async (spawned PowerShell) so it never blocks the loop.
+function checkUnityRunning() {
+  return new Promise((resolve) => {
+    let out = '';
+    let done = false;
+    let child;
+    const finish = (val) => {
+      if (done) return;
+      done = true;
+      try { child && child.kill(); } catch (_) {}
+      resolve(val);
+    };
+    const ps =
+      "$p = Get-CimInstance Win32_Process -Filter \"Name='Unity.exe'\" -ErrorAction SilentlyContinue | " +
+      "Where-Object { $_.CommandLine -and $_.CommandLine -match '-batchmode' -and $_.CommandLine -match 'mvp_v1' }; " +
+      "if ($p) { 'FOUND' } else { 'NONE' }";
+    try {
+      child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true });
+    } catch (_) {
+      return resolve(false);
+    }
+    if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
+    child.on('error', () => finish(false));
+    child.on('close', () => finish(/FOUND/.test(out)));
+    setTimeout(() => finish(false), 15000); // async — safe, never blocks the loop
+  });
+}
+
 const state = {
   building: false,
   queued: false, // a rebuild was requested while one was already running
@@ -71,8 +110,12 @@ const state = {
 
 let child = null;
 let timeoutHandle = null;
+let adoptedInterval = null; // poller when we're watching an external/orphaned build
 
 // Snapshot of build state for the /api/game/status endpoint (drives the UI).
+// Pure + synchronous — never shells out — so it's safe to call on every poll.
+// state.building is kept accurate by the builds we start AND by the startup
+// adopt-check that detects an orphaned build after a restart.
 function status() {
   return {
     enabled: autoBuildEnabled(),
@@ -102,6 +145,7 @@ function startBuild(reason) {
   state.queued = false;
   state.startedAt = new Date().toISOString();
   state.lastReason = reason || null;
+
   console.log('[build] starting Unity rebuild', reason ? `(${reason})` : '');
 
   let outFd = 'ignore';
@@ -115,6 +159,11 @@ function startBuild(reason) {
     child = spawn('powershell', args, {
       cwd: repo.REPO_ROOT,
       windowsHide: true,
+      // detached: run in its OWN process group so a server restart (manual or the
+      // watchdog self-healing) can't kill the build mid-flight and lose the
+      // publish step. If this server dies, the build finishes + publishes on its
+      // own, and the next server instance adopts it via startupAdoptCheck.
+      detached: true,
       stdio: ['ignore', outFd, outFd],
     });
   } catch (err) {
@@ -122,13 +171,24 @@ function startBuild(reason) {
     finishBuild('error', err && err.message);
     return;
   }
+  // Don't let the running build keep the Node event loop alive; it's fully
+  // independent now.
+  try { child.unref(); } catch (_) {}
 
   // Close our copy of the fd in the parent; the child keeps its own.
   if (typeof outFd === 'number') { try { fs.closeSync(outFd); } catch (_) {} }
 
+  // A kill from our timeout must take the whole detached process tree with it.
+  const childPid = child.pid;
+
   timeoutHandle = setTimeout(() => {
-    console.error('[build] timeout — killing the stuck build');
-    try { child && child.kill(); } catch (_) {}
+    console.error('[build] timeout — killing the stuck build tree');
+    try {
+      if (childPid) spawn('taskkill', ['/PID', String(childPid), '/T', '/F'], { windowsHide: true });
+      else if (child) child.kill();
+    } catch (_) {
+      try { child && child.kill(); } catch (_) {}
+    }
     finishBuild('timeout', `exceeded ${Math.round(BUILD_TIMEOUT_MS / 60000)}m`);
   }, BUILD_TIMEOUT_MS);
 
@@ -139,9 +199,28 @@ function startBuild(reason) {
   });
 }
 
+// Watch an already-running (external/orphaned) Unity build and finish — draining
+// any queued rebuild — once it exits. Used after a server restart mid-build.
+// The poll is async (checkUnityRunning) so it never blocks the event loop.
+function adoptRunningBuild() {
+  if (timeoutHandle) { clearTimeout(timeoutHandle); }
+  timeoutHandle = setTimeout(() => {
+    console.error('[build] adopted build timed out');
+    finishBuild('timeout', 'adopted build exceeded limit');
+  }, BUILD_TIMEOUT_MS);
+
+  if (adoptedInterval) clearInterval(adoptedInterval);
+  adoptedInterval = setInterval(() => {
+    checkUnityRunning().then((running) => {
+      if (!running) finishBuild('success', 'external build finished');
+    });
+  }, 15000);
+}
+
 function finishBuild(result, errMsg) {
   if (!state.building) return; // guard against double-fire (close + timeout)
   if (timeoutHandle) { clearTimeout(timeoutHandle); timeoutHandle = null; }
+  if (adoptedInterval) { clearInterval(adoptedInterval); adoptedInterval = null; }
   child = null;
   state.building = false;
   state.startedAt = null;
@@ -155,5 +234,26 @@ function finishBuild(result, errMsg) {
     startBuild('coalesced');
   }
 }
+
+// On startup, detect a Unity build that's already running (e.g. the server was
+// restarted mid-build) and adopt it, so the UI keeps showing "rebuilding" and we
+// never launch a second concurrent build. Retries a few times because tasklist
+// can be briefly slow under a running build's load.
+function startupAdoptCheck(attempt) {
+  attempt = attempt || 1;
+  if (!autoBuildEnabled() || state.building) return;
+  checkUnityRunning().then((running) => {
+    if (state.building) return;
+    if (running) {
+      console.log('[build] startup: found a running Unity build — adopting it');
+      state.building = true;
+      state.startedAt = new Date().toISOString();
+      adoptRunningBuild();
+    } else if (attempt < 4) {
+      setTimeout(() => startupAdoptCheck(attempt + 1), 5000);
+    }
+  });
+}
+setTimeout(() => startupAdoptCheck(1), 2500);
 
 module.exports = { requestBuild, status, autoBuildEnabled };
