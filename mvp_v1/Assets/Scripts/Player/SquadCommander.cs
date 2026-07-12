@@ -25,6 +25,10 @@ namespace GoblinSiege.Player
         private InputAction _selectSquad2;
         private InputAction _selectSquad3;
         private InputAction _selectSquad4;
+        private InputAction _selectSquad5;
+        private InputAction _selectSquad6;
+        private InputAction _selectSquad7;
+        private InputAction _selectSquad8;
         private InputAction _selectAll;
 
         private readonly List<Squad> _selection = new();
@@ -54,6 +58,11 @@ namespace GoblinSiege.Player
             _selectSquad3 = _input.actions["SelectSquad3"];
             // Squad #4 (the Sapper band) — keys 1-3 could never reach it before.
             _selectSquad4 = _input.actions["SelectSquad4"];
+            // Squads 5-8 for a bigger horde (cap raised to 8).
+            _selectSquad5 = _input.actions["SelectSquad5"];
+            _selectSquad6 = _input.actions["SelectSquad6"];
+            _selectSquad7 = _input.actions["SelectSquad7"];
+            _selectSquad8 = _input.actions["SelectSquad8"];
             _selectAll = _input.actions["SelectAll"];
 
             _orderAction.performed += OnOrder;
@@ -61,6 +70,10 @@ namespace GoblinSiege.Player
             _selectSquad2.performed += OnSelect2;
             _selectSquad3.performed += OnSelect3;
             if (_selectSquad4 != null) _selectSquad4.performed += OnSelect4;
+            if (_selectSquad5 != null) _selectSquad5.performed += OnSelect5;
+            if (_selectSquad6 != null) _selectSquad6.performed += OnSelect6;
+            if (_selectSquad7 != null) _selectSquad7.performed += OnSelect7;
+            if (_selectSquad8 != null) _selectSquad8.performed += OnSelect8;
             _selectAll.performed += OnSelectAll;
         }
 
@@ -71,6 +84,10 @@ namespace GoblinSiege.Player
             if (_selectSquad2 != null) _selectSquad2.performed -= OnSelect2;
             if (_selectSquad3 != null) _selectSquad3.performed -= OnSelect3;
             if (_selectSquad4 != null) _selectSquad4.performed -= OnSelect4;
+            if (_selectSquad5 != null) _selectSquad5.performed -= OnSelect5;
+            if (_selectSquad6 != null) _selectSquad6.performed -= OnSelect6;
+            if (_selectSquad7 != null) _selectSquad7.performed -= OnSelect7;
+            if (_selectSquad8 != null) _selectSquad8.performed -= OnSelect8;
             if (_selectAll != null) _selectAll.performed -= OnSelectAll;
         }
 
@@ -78,6 +95,10 @@ namespace GoblinSiege.Player
         private void OnSelect2(InputAction.CallbackContext _) => SelectOnly(1);
         private void OnSelect3(InputAction.CallbackContext _) => SelectOnly(2);
         private void OnSelect4(InputAction.CallbackContext _) => SelectOnly(3);
+        private void OnSelect5(InputAction.CallbackContext _) => SelectOnly(4);
+        private void OnSelect6(InputAction.CallbackContext _) => SelectOnly(5);
+        private void OnSelect7(InputAction.CallbackContext _) => SelectOnly(6);
+        private void OnSelect8(InputAction.CallbackContext _) => SelectOnly(7);
 
         private void OnSelectAll(InputAction.CallbackContext _)
         {

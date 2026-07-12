@@ -25,7 +25,7 @@ namespace GoblinSiege.Bootstrap
     ///   • all positions mapped 2D (x,y) → 3D (x,0,y) so north = +Z, south = −Z.
     /// The HUD, onboarding banner, threshold callouts and screen-pulse are unchanged.
     ///
-    /// Controls: WASD/Arrows move the Warlord. 1/2/3/4 select a squad, ` selects all,
+    /// Controls: WASD/Arrows move the Warlord. 1-8 select a squad, ` selects all,
     /// right-click orders them (raycast onto the ground), H sounds the Warhorn.
     /// </summary>
     public class RaidBootstrap : MonoBehaviour
@@ -586,6 +586,10 @@ namespace GoblinSiege.Bootstrap
             map.AddAction("SelectSquad2", InputActionType.Button, "<Keyboard>/2");
             map.AddAction("SelectSquad3", InputActionType.Button, "<Keyboard>/3");
             map.AddAction("SelectSquad4", InputActionType.Button, "<Keyboard>/4");
+            map.AddAction("SelectSquad5", InputActionType.Button, "<Keyboard>/5");
+            map.AddAction("SelectSquad6", InputActionType.Button, "<Keyboard>/6");
+            map.AddAction("SelectSquad7", InputActionType.Button, "<Keyboard>/7");
+            map.AddAction("SelectSquad8", InputActionType.Button, "<Keyboard>/8");
             map.AddAction("SelectAll", InputActionType.Button, "<Keyboard>/backquote");
             return asset;
         }
@@ -688,7 +692,7 @@ namespace GoblinSiege.Bootstrap
             // Controls Card: small persistent reference in bottom-left corner.
             MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.02f, 0.02f),
-                "WASD move · 1/2/3/4 select squad (4 = SAPPER) · ` select all\nRight-click order · H = Warhorn (once) · Walk near GOLD disc = open door",
+                "WASD move · 1-8 select squad (4 = SAPPER) · ` select all\nRight-click order · H = Warhorn (once) · Walk near GOLD disc = open door",
                 fontSize: 12,
                 anchor: TextAnchor.LowerLeft,
                 pivotAnchor: new Vector2(0f, 0f));
