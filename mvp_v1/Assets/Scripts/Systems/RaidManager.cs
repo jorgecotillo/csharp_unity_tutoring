@@ -249,6 +249,10 @@ namespace GoblinSiege.Systems
         {
             alarm.Add(Balance.AlarmPerGateBreached);
             OnGateBreachedAt?.Invoke(gate.transform.position);
+            // Blowing the gate open alerts the whole village: wake the garrison NOW so
+            // the humans stop ignoring the player (no more "I'm invisible" until the
+            // interior barracks door). The Warlord's door is still a valid trigger too.
+            CombatGate.Unlock();
         }
 
         private void HandleHumanKilled()

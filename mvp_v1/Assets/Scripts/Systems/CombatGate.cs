@@ -22,8 +22,9 @@ namespace GoblinSiege.Systems
     ///   • <see cref="Door.Awake"/> calls <see cref="Lock"/> — a door in the scene
     ///     means "combat is gated until this door opens." This runs fresh every raid,
     ///     so it is correct even across repeated play sessions (static leakage safe).
-    ///   • <see cref="Door"/> calls <see cref="Unlock"/> once, right after it finishes
-    ///     swinging open.
+    ///   • <see cref="Unlock"/> is called when the Warlord finishes swinging the door
+    ///     open, OR when a Sapper breaches the outer gate (RaidManager wakes the
+    ///     garrison on breach) — whichever the player triggers first.
     /// </summary>
     public static class CombatGate
     {

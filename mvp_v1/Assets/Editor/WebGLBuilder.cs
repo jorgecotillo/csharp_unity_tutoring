@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -48,6 +50,12 @@ namespace GoblinSiege.EditorTools
                 PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
                 PlayerSettings.WebGL.decompressionFallback = true;
 
+                // FAST vs QUALITY build. Pass "-fastBuild" (the studio auto-build does) to
+                // trade runtime speed / download size for a MUCH shorter build — great for
+                // iterating. Without it we do a full optimized build for a final/ship export.
+                bool fast = HasArg("-fastBuild");
+                ApplyBuildProfile(fast);
+
                 Directory.CreateDirectory(outputDir);
 
                 var options = new BuildPlayerOptions
@@ -79,6 +87,80 @@ namespace GoblinSiege.EditorTools
                 LogError($"WebGL build threw an exception: {ex}");
                 EditorApplication.Exit(1);
             }
+        }
+
+        /// <summary>
+        /// Applies build settings tuned for either FAST iteration or QUALITY output.
+        ///
+        /// Fast mode is the big win for the studio's auto-rebuild loop: it compiles the
+        /// IL2CPP-generated C++ in Debug (far quicker than Release), tells Emscripten to
+        /// skip heavy LLVM optimization (BuildTimes), and turns off code stripping — all
+        /// of which roughly halves the build. The cost (slightly slower runtime, a bigger
+        /// download) is irrelevant for a low-complexity game previewed locally.
+        ///
+        /// Both modes are set EXPLICITLY so the result never depends on whatever a
+        /// previous build persisted into ProjectSettings.
+        /// </summary>
+        private static void ApplyBuildProfile(bool fast)
+        {
+            try
+            {
+                PlayerSettings.SetIl2CppCompilerConfiguration(
+                    NamedBuildTarget.WebGL,
+                    fast ? Il2CppCompilerConfiguration.Debug : Il2CppCompilerConfiguration.Release);
+
+                PlayerSettings.SetManagedStrippingLevel(
+                    NamedBuildTarget.WebGL,
+                    fast ? ManagedStrippingLevel.Minimal : ManagedStrippingLevel.Low);
+
+                PlayerSettings.stripEngineCode = !fast;
+
+                Log(fast
+                    ? "Profile: FAST (IL2CPP=Debug, stripping=Minimal, stripEngineCode=off)"
+                    : "Profile: QUALITY (IL2CPP=Release, stripping=Low, stripEngineCode=on)");
+            }
+            catch (Exception ex)
+            {
+                LogError($"Applying managed build profile failed (continuing): {ex.Message}");
+            }
+
+            // The Emscripten/LLVM optimization level is a WebGL-extension setting. We reach
+            // it by reflection so a missing/renamed API can NEVER break the build — worst
+            // case we just don't get this particular speedup.
+            SetWebGLCodeOptimization(fast ? "BuildTimes" : "RuntimeSpeed");
+        }
+
+        /// <summary>
+        /// Sets UnityEditor.WebGL.UserBuildSettings.codeOptimization by name via reflection.
+        /// "BuildTimes" = fastest build (skip -O optimization); "RuntimeSpeed" = optimized.
+        /// </summary>
+        private static void SetWebGLCodeOptimization(string valueName)
+        {
+            try
+            {
+                Type t = AppDomain.CurrentDomain.GetAssemblies()
+                    .Select(a => { try { return a.GetType("UnityEditor.WebGL.UserBuildSettings"); } catch { return null; } })
+                    .FirstOrDefault(x => x != null);
+                if (t == null) { Log("codeOptimization: UserBuildSettings type not found (skipped)"); return; }
+
+                PropertyInfo prop = t.GetProperty("codeOptimization", BindingFlags.Public | BindingFlags.Static);
+                if (prop == null) { Log("codeOptimization: property not found (skipped)"); return; }
+
+                object enumVal = Enum.Parse(prop.PropertyType, valueName, ignoreCase: true);
+                prop.SetValue(null, enumVal);
+                Log($"WebGL codeOptimization = {valueName}");
+            }
+            catch (Exception ex)
+            {
+                Log($"codeOptimization set skipped ({ex.Message})");
+            }
+        }
+
+        /// <summary>True if the given flag is present on the Unity command line.</summary>
+        private static bool HasArg(string name)
+        {
+            return Environment.GetCommandLineArgs()
+                .Any(a => string.Equals(a, name, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
