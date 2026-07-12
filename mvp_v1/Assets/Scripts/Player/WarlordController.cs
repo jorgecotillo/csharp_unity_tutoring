@@ -119,14 +119,24 @@ namespace GoblinSiege.Player
 
         private void OnEnable()
         {
-            _moveAction = _input.actions["Move"];
-            _warhornAction = _input.actions["Warhorn"];
-            _slashAction = _input.actions["Slash"];
+            // Use FindAction (returns null instead of throwing) so a missing optional
+            // action can NEVER stop the critical Move/Warhorn bindings from wiring up.
+            // The actions["Name"] indexer throws KeyNotFoundException if an action is
+            // absent — and if that fired before the Move subscription below, the
+            // Warlord became completely uncontrollable.
+            _moveAction = _input.actions.FindAction("Move");
+            _warhornAction = _input.actions.FindAction("Warhorn");
+            _slashAction = _input.actions.FindAction("Slash");
 
-            _moveAction.performed += OnMove;
-            _moveAction.canceled += OnMove;
-            _warhornAction.performed += OnWarhorn;
-            _slashAction.performed += OnSlash;
+            if (_moveAction != null)
+            {
+                _moveAction.performed += OnMove;
+                _moveAction.canceled += OnMove;
+            }
+            if (_warhornAction != null)
+                _warhornAction.performed += OnWarhorn;
+            if (_slashAction != null)
+                _slashAction.performed += OnSlash;
         }
 
         private void OnDisable()

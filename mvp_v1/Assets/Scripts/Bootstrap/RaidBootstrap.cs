@@ -586,6 +586,10 @@ namespace GoblinSiege.Bootstrap
                 .With("Left", "<Keyboard>/leftArrow").With("Right", "<Keyboard>/rightArrow");
 
             map.AddAction("Warhorn", InputActionType.Button, "<Keyboard>/h");
+            // Warlord's melee SLASH — the runtime input asset is BUILT HERE (the
+            // .inputactions file is NOT loaded at play time), so the action must be
+            // registered here or WarlordController's actions["Slash"] lookup throws.
+            map.AddAction("Slash", InputActionType.Button, "<Keyboard>/space");
             map.AddAction("Point", InputActionType.Value, "<Mouse>/position");
             map.AddAction("Order", InputActionType.Button, "<Mouse>/rightButton");
             map.AddAction("Select", InputActionType.Button, "<Mouse>/leftButton");
