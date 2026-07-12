@@ -69,6 +69,44 @@
               <div class="rebuild-meta">
                 <span id="rebuildTime">0:00</span> · keep chatting — this takes a few minutes
               </div>
+              <div class="coach" id="buildCoach">
+                <div class="coach-predict" id="coachPredict">
+                  <div class="coach-predict-q">🔮 Quick! Before it loads — what do you think will change?</div>
+                  <div class="coach-predict-row">
+                    <input id="coachPredictInput" class="coach-input" type="text" maxlength="120"
+                           placeholder="e.g. my 4th squad will finally show up…" autocomplete="off" />
+                    <button id="coachPredictLock" class="coach-btn" type="button">Lock it in 🔒</button>
+                  </div>
+                  <button id="coachPredictSkip" class="coach-skip" type="button">skip</button>
+                </div>
+                <div class="coach-locked" id="coachLocked" hidden>
+                  🔒 Locked in: “<span id="coachLockedText"></span>” — we'll check when it loads!
+                </div>
+                <div class="coach-lesson" id="coachLesson">
+                  <div class="coach-eyebrow">⚙️ WHILE YOUR GAME FORGES…</div>
+                  <div class="coach-lesson-title" id="coachLessonTitle"></div>
+                  <div class="coach-lesson-body" id="coachLessonBody"></div>
+                  <div class="coach-lesson-ask" id="coachLessonAsk"></div>
+                  <div class="coach-lesson-nav">
+                    <button class="coach-navbtn" id="coachPrev" type="button" title="Previous">‹</button>
+                    <span class="coach-dots" id="coachDots"></span>
+                    <button class="coach-navbtn" id="coachNext" type="button" title="Next">›</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="coachVerify" class="coach-verify" hidden>
+            <div class="coach-verify-card">
+              <button class="coach-verify-x" id="coachVerifyClose" type="button" title="Close">×</button>
+              <div class="coach-verify-title">🔮 You predicted:</div>
+              <div class="coach-verify-pred" id="coachVerifyPred"></div>
+              <div class="coach-verify-q">Were you right? Go check! 👀</div>
+              <div class="coach-verify-btns">
+                <button class="coach-btn coach-btn-green" id="coachVerifyYes" type="button">✅ Nailed it!</button>
+                <button class="coach-btn" id="coachVerifyNo" type="button">🤔 Not quite</button>
+              </div>
+              <div class="coach-verify-note" id="coachVerifyNote" hidden></div>
             </div>
           </div>
           <iframe
@@ -130,5 +168,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="/js/studio.js"></script>
+    <script src="/js/coach.js"></script>
   </body>
 </html>
