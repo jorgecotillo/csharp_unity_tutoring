@@ -31,7 +31,25 @@ namespace GoblinSiege.EditorTools
         private const string ScenesDir = "Assets/Scenes";
         private const string BootstrapScenePath = "Assets/Scenes/Main.unity";
 
+        /// <summary>
+        /// CLI entry point: run one build, then EXIT the editor with the result code
+        /// (0 = success, 1 = failure). Used by the headless one-shot build path
+        /// (refresh-preview.ps1). The persistent build daemon does NOT use this — it
+        /// calls <see cref="BuildOnce"/> so it can build repeatedly without quitting.
+        /// </summary>
         public static void Build()
+        {
+            bool ok = BuildOnce(out _);
+            EditorApplication.Exit(ok ? 0 : 1);
+        }
+
+        /// <summary>
+        /// Runs ONE WebGL build and returns whether it succeeded, WITHOUT exiting the
+        /// editor. This is the single source of build truth shared by the one-shot CLI
+        /// (<see cref="Build"/>) and the persistent BuildDaemon. Never throws.
+        /// </summary>
+        /// <param name="message">Human-readable result/error summary.</param>
+        public static bool BuildOnce(out string message)
         {
             try
             {
@@ -65,19 +83,20 @@ namespace GoblinSiege.EditorTools
 
                 if (summary.result == BuildResult.Succeeded)
                 {
-                    Log($"WebGL build SUCCEEDED: {summary.totalSize} bytes, {summary.totalTime}");
-                    EditorApplication.Exit(0);
+                    message = $"WebGL build SUCCEEDED: {summary.totalSize} bytes, {summary.totalTime}";
+                    Log(message);
+                    return true;
                 }
-                else
-                {
-                    LogError($"WebGL build FAILED: result={summary.result}, errors={summary.totalErrors}");
-                    EditorApplication.Exit(1);
-                }
+
+                message = $"WebGL build FAILED: result={summary.result}, errors={summary.totalErrors}";
+                LogError(message);
+                return false;
             }
             catch (Exception ex)
             {
+                message = $"WebGL build threw an exception: {ex.Message}";
                 LogError($"WebGL build threw an exception: {ex}");
-                EditorApplication.Exit(1);
+                return false;
             }
         }
 

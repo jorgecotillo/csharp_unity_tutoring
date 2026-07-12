@@ -82,6 +82,9 @@ namespace GoblinSiege.Systems
         // ═══════════════════════════════════════════════════════════════════════
         private void BlowUp()
         {
+            // BOOM: the breach explosion sound (matches the visual blast).
+            SfxManager.PlayExplosion();
+
             Vector3 center = transform.position + Vector3.up * 0.6f;
             Color woodColor = VisualLibrary.GateBrown;
 

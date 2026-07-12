@@ -6,6 +6,7 @@ namespace GoblinSiege.Core
     /// </summary>
     public static class Balance
     {
+        // daemon-test marker (temporary; reverted after measuring build time)
         // --- Loot caches: gold reward and alarm cost ---
         public static int CacheGold(CacheType type) => type switch
         {
