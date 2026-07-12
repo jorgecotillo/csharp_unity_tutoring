@@ -303,7 +303,7 @@ namespace GoblinSiege.Bootstrap
             // Each Wall fallback is 4 wide; placed so the line reads continuous.
             float[] wallX = { -3f, -7f, -11f, 3f, 7f, 11f };
             foreach (float x in wallX)
-                SpawnProp(VisualLibrary.KeyWall, x, z, 0f, parent);
+                SpawnWall(x, z, 0f, parent);
 
             // Two thin watchtowers hugging the gate — vertical landmarks marking the
             // breach point. Thin (G4) so they punctuate without walling off the view.
@@ -329,13 +329,33 @@ namespace GoblinSiege.Bootstrap
             // Side walls: rotate 90° so the 4-unit length runs north-south (along Z).
             for (float wz = gateZ + 2f; wz <= backZ; wz += 4f)
             {
-                SpawnProp(VisualLibrary.KeyWall, -sideX, wz, 90f, parent);
-                SpawnProp(VisualLibrary.KeyWall,  sideX, wz, 90f, parent);
+                SpawnWall(-sideX, wz, 90f, parent);
+                SpawnWall( sideX, wz, 90f, parent);
             }
 
             // Back wall: segments run east-west (along X), closing the top of the box.
             for (float wx = -sideX + 1f; wx <= sideX - 1f; wx += 4f)
-                SpawnProp(VisualLibrary.KeyWall, wx, backZ, 0f, parent);
+                SpawnWall(wx, backZ, 0f, parent);
+        }
+
+        /// <summary>
+        /// Spawns one palisade wall segment AND fattens its physics collider on the
+        /// thin (local Z) axis. The visible timber stays slim for readability (G4),
+        /// but the collider becomes ~1.4 m deep so a unit pushing against it can never
+        /// be squeezed through the paper-thin panel (the "goblin through the wall" bug).
+        /// </summary>
+        private GameObject SpawnWall(float x, float z, float yawDegrees, Transform parent)
+        {
+            GameObject wall = SpawnProp(VisualLibrary.KeyWall, x, z, yawDegrees, parent);
+            var box = wall.GetComponent<BoxCollider>();
+            if (box != null)
+            {
+                Vector3 size = box.size;         // local space; mesh scale is (4, 1.3, 0.45)
+                size.z = 3.2f;                   // world depth ≈ 0.45 × 3.2 ≈ 1.44 m (was 0.45)
+                size.y = 2.0f;                   // world height ≈ 1.3 × 2.0 ≈ 2.6 m — no hopping over
+                box.size = size;
+            }
+            return wall;
         }
 
         /// <summary>
