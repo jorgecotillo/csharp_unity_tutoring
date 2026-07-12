@@ -755,7 +755,7 @@ namespace GoblinSiege.Bootstrap
             var label = go.AddComponent<Text>();
             label.font = font;
             label.text = text;
-            label.color = Color.white;
+            label.color = new Color(0.10f, 0.10f, 0.12f); // dark, high-contrast text
             label.fontSize = fontSize;
             label.alignment = anchor;
             var rt = label.rectTransform;
@@ -889,7 +889,7 @@ namespace GoblinSiege.Bootstrap
             var label = go.AddComponent<Text>();
             label.font = font;
             label.text = text;
-            label.color = Color.white;
+            label.color = new Color(0.10f, 0.10f, 0.12f); // dark, high-contrast text
             label.fontSize = 16;
             label.alignment = TextAnchor.MiddleLeft;
             var rt = label.rectTransform;
