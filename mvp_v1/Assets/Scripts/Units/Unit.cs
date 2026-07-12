@@ -104,7 +104,13 @@ namespace GoblinSiege.Units
                              | RigidbodyConstraints.FreezeRotationX
                              | RigidbodyConstraints.FreezeRotationZ;
             Body.interpolation = RigidbodyInterpolation.Interpolate; // smooth visuals
-            Body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            // Bug fix (goblins passing through walls): ContinuousDynamic sweeps the
+            // body against STATIC wall/gate colliders between physics steps so a unit
+            // can never seep through a thin (0.45 m) palisade. The previous
+            // ContinuousSpeculative mode is known to let bodies with a frozen-Y
+            // position constraint ghost through thin static geometry — exactly our
+            // case (G2 freezes Y). Dynamic sweeping is the reliable fix.
+            Body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
             // Add a CapsuleCollider so units are physically blocked by walls and gates.
             // Get-or-add: reuse the primitive's existing collider if present.

@@ -62,7 +62,11 @@ namespace GoblinSiege.Player
                               | RigidbodyConstraints.FreezeRotationX
                               | RigidbodyConstraints.FreezeRotationZ;
             _body.interpolation = RigidbodyInterpolation.Interpolate;
-            _body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            // Bug fix (pass-through): ContinuousDynamic sweeps the Warlord against
+            // static wall/gate/door colliders so he is always physically blocked,
+            // instead of the old ContinuousSpeculative mode that could let a
+            // frozen-Y body slip through thin barriers. Matches Unit.cs.
+            _body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
             // Add a CapsuleCollider so the Warlord is physically blocked by walls,
             // gates, and doors — same setup as Unit.Awake (G2 flat gameplay).
