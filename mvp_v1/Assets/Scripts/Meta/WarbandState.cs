@@ -34,7 +34,9 @@ namespace GoblinSiege.Meta
         public int SurplusGold => surplusGold;
         public int HighestRaidCleared => highestRaidCleared;
 
-        private const string PrefKey = "goblinsiege.warband.v1";
+        // Bumped v1 -> v2 so older 3-squad saves (no Sapper) are discarded and every
+        // player gets the new starting band WITH a Sapper on next load.
+        private const string PrefKey = "goblinsiege.warband.v2";
 
         private void Awake()
         {
@@ -55,10 +57,11 @@ namespace GoblinSiege.Meta
             squadCap = Balance.StartingSquadCap;
             surplusGold = 0;
             highestRaidCleared = 0;
-            // Starting band: 2 Grunt squads + 1 Spearthrower squad.
+            // Starting band: 2 Grunt squads + 1 Spearthrower + 1 Sapper (breaches gates).
             squads.Add(new SquadRecord(GoblinType.Grunt));
             squads.Add(new SquadRecord(GoblinType.Grunt));
             squads.Add(new SquadRecord(GoblinType.Spearthrower));
+            squads.Add(new SquadRecord(GoblinType.Sapper));
             Save();
         }
 

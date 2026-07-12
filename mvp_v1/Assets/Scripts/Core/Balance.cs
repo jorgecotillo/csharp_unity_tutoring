@@ -61,7 +61,8 @@ namespace GoblinSiege.Core
         public const float GateBreachSeconds = 8f;
 
         // --- Starting war-band ---
-        public const int StartingSquadCap = 3;
+        // Cap of 4 so the starting band (2 Grunt + 1 Spearthrower + 1 Sapper) all fields.
+        public const int StartingSquadCap = 4;
         public const int UnitsPerSquad = 5;
 
         // --- War-Camp costs (spent from surplus gold) ---
