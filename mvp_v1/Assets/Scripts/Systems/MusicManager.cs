@@ -154,6 +154,22 @@ namespace GoblinSiege.Systems
                 _source.Play();
         }
 
+        private bool _silenced;
+
+        /// <summary>
+        /// Stop the battle track for good (call when the raid ends so a game-over
+        /// jingle can play cleanly). Guards Update so it won't fight the change.
+        /// </summary>
+        public void Silence()
+        {
+            _silenced = true;
+            if (_source != null)
+            {
+                _source.Stop();
+                _source.volume = 0f;
+            }
+        }
+
         private void OnDestroy()
         {
             if (_alarm != null) _alarm.OnThresholdChanged -= HandleThreshold;
@@ -184,6 +200,8 @@ namespace GoblinSiege.Systems
 
         private void Update()
         {
+            if (_silenced) return; // raid over — battle music is stopped
+
             // Poll the battlefield a few times a second (cheap) for how many humans
             // are attacking, then aim the music's tempo accordingly.
             _pollTimer -= Time.deltaTime;

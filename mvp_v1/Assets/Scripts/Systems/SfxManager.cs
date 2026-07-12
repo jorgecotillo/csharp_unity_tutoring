@@ -20,6 +20,7 @@ namespace GoblinSiege.Systems
 
         private AudioSource _source;
         private AudioClip _explosionClip;
+        private AudioClip _gameOverClip;
 
         /// <summary>
         /// Play the breach/door explosion BOOM. Safe to call from anywhere; the
@@ -31,6 +32,18 @@ namespace GoblinSiege.Systems
             EnsureInstance();
             if (_instance == null) return;
             _instance._source.PlayOneShot(_instance._explosionClip, Mathf.Clamp01(volume));
+        }
+
+        /// <summary>
+        /// Play the "game over" defeat jingle — a short, original descending fanfare
+        /// that plays when the warlord falls (or any raid defeat). Built in code, so
+        /// it needs no audio asset and works in WebGL.
+        /// </summary>
+        public static void PlayGameOver(float volume = 1f)
+        {
+            EnsureInstance();
+            if (_instance == null) return;
+            _instance._source.PlayOneShot(_instance._gameOverClip, Mathf.Clamp01(volume));
         }
 
         private static void EnsureInstance()
@@ -58,6 +71,7 @@ namespace GoblinSiege.Systems
             _source.spatialBlend = 0f; // 2D — the boom is a global "event" sound.
 
             _explosionClip = GenerateExplosion();
+            _gameOverClip = GenerateGameOver();
         }
 
         private void OnDestroy()
@@ -118,6 +132,71 @@ namespace GoblinSiege.Systems
                 data[i] *= gain;
 
             var clip = AudioClip.Create("GoblinSiege_Boom", total, 1, sampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // GenerateGameOver — an ORIGINAL "defeat" jingle (NOT copied from any game).
+        // A slow brass-y fanfare of 5 notes that sag DOWNWARD in pitch (the classic
+        // "wah-wah, you lost" shape), each note a soft sawtooth-ish tone with a gentle
+        // attack/decay, over a low sustained drone so it feels heavy and final.
+        // ═══════════════════════════════════════════════════════════════════════
+        private static AudioClip GenerateGameOver()
+        {
+            const int sampleRate = 22050;
+            const float PI2 = 2f * Mathf.PI;
+
+            // Descending minor-ish phrase (Hz): C5 · A4 · F4 · D4 · C4-hold.
+            // Original melody — a sinking "the hero has fallen" line.
+            float[] notes = { 523.25f, 440.00f, 349.23f, 293.66f, 261.63f };
+            float[] durs  = { 0.28f,   0.28f,   0.28f,   0.28f,   0.85f  }; // last note rings
+
+            float totalSeconds = 0f;
+            for (int n = 0; n < durs.Length; n++) totalSeconds += durs[n];
+            int total = Mathf.RoundToInt(sampleRate * totalSeconds);
+            var data = new float[total];
+
+            const float droneFreq = 65.41f; // C2 — low, ominous bed under the melody.
+
+            int cursor = 0;
+            for (int n = 0; n < notes.Length; n++)
+            {
+                int len = Mathf.RoundToInt(sampleRate * durs[n]);
+                float freq = notes[n];
+                for (int j = 0; j < len && cursor < total; j++, cursor++)
+                {
+                    float tn = (float)j / sampleRate;         // time into THIS note
+                    float tg = (float)cursor / sampleRate;    // time into the whole jingle
+
+                    // Soft attack, slow decay so notes bloom then fade (brass-like).
+                    float atk = 1f - Mathf.Exp(-tn * 30f);
+                    float dec = Mathf.Exp(-tn * 2.2f);
+                    float env = atk * dec;
+
+                    // Tone: fundamental + a couple of harmonics for a warm brass color.
+                    float tone = Mathf.Sin(PI2 * freq * tn)
+                               + 0.35f * Mathf.Sin(PI2 * 2f * freq * tn)
+                               + 0.18f * Mathf.Sin(PI2 * 3f * freq * tn);
+                    tone *= env * 0.5f;
+
+                    // Low drone bed, fading out across the whole jingle.
+                    float drone = Mathf.Sin(PI2 * droneFreq * tg)
+                                  * 0.22f * Mathf.Exp(-tg * 0.5f);
+
+                    data[cursor] = tone + drone;
+                }
+            }
+
+            // Normalise to a comfortable peak.
+            float peak = 0.0001f;
+            for (int i = 0; i < total; i++)
+                peak = Mathf.Max(peak, Mathf.Abs(data[i]));
+            float gain = 0.85f / peak;
+            for (int i = 0; i < total; i++)
+                data[i] *= gain;
+
+            var clip = AudioClip.Create("GoblinSiege_GameOver", total, 1, sampleRate, false);
             clip.SetData(data, 0);
             return clip;
         }

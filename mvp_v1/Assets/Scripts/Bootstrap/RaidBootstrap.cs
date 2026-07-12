@@ -60,6 +60,7 @@ namespace GoblinSiege.Bootstrap
         private RaidManager _raid;
         private AlarmSystem _alarm;
         private QuotaSystem _quota;
+        private MusicManager _music;
 
         // HUD references updated each event.
         private RectTransform _goldFill;
@@ -122,6 +123,7 @@ namespace GoblinSiege.Bootstrap
             var musicGo = new GameObject("MusicManager");
             musicGo.transform.SetParent(sysGo.transform);
             var music = musicGo.AddComponent<MusicManager>();
+            _music = music;
             // Configure AFTER the alarm is set up so it can subscribe to threshold events.
             // Drop a .wav/.mp3/.ogg AudioClip onto the MusicManager's "Music Clip" field
             // in the Inspector to hear music; it will still wire up and speed up without one.
@@ -946,6 +948,13 @@ namespace GoblinSiege.Bootstrap
                     _ => "RAID OVER"
                 };
                 if (_resultBg != null) _resultBg.enabled = true; // show the backing now
+
+                // On any DEFEAT, hush the battle track and play the game-over jingle.
+                if (result != RaidResult.Won)
+                {
+                    if (_music != null) _music.Silence();
+                    SfxManager.PlayGameOver();
+                }
             };
         }
 
