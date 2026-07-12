@@ -35,6 +35,17 @@ const UNITY_EXE =
   process.env.UNITY_EXE ||
   'C:\\Program Files\\Unity\\Hub\\Editor\\6000.3.15f1\\Editor\\Unity.exe';
 const REFRESH_SCRIPT = path.join(repo.REPO_ROOT, 'refresh-preview.ps1');
+const PUBLISH_SCRIPT = path.join(repo.REPO_ROOT, 'publish-game.ps1');
+
+// Persistent build-daemon protocol files (see mvp_v1/Assets/Editor/BuildDaemon.cs
+// and start-build-daemon.ps1). When a daemon is alive we ask it to build instead
+// of launching a fresh Unity — skipping the ~1-2 min editor startup each time.
+const DAEMON_DIR = path.join(repo.REPO_ROOT, 'mvp_v1', 'Builds', 'daemon');
+const DAEMON_HEARTBEAT = path.join(DAEMON_DIR, 'heartbeat.txt');
+const DAEMON_REQUEST = path.join(DAEMON_DIR, 'request.txt');
+const DAEMON_RESULT = path.join(DAEMON_DIR, 'result.txt');
+// A heartbeat newer than this = daemon considered alive.
+const DAEMON_FRESH_MS = 12000;
 
 // Hard ceiling so a wedged Unity process (e.g. the editor is open on this
 // worktree and holds the project lock) can't leave us "building" forever.
@@ -67,11 +78,12 @@ function fileExists(p) {
 // tasklist is slow under a build's CPU/disk load. Only ever called off the
 // request path (startup + the adopt poller), never from /api/game/status.
 //
-// CRITICAL: this must match ONLY a headless -batchmode WebGL build of THIS
-// game (mvp_v1) — NOT an interactive Unity Editor the user may have open on
-// another project. A plain tasklist can't tell them apart (both are Unity.exe),
-// so we query the process COMMAND LINE via CIM and require '-batchmode' + the
-// 'mvp_v1' project. Async (spawned PowerShell) so it never blocks the loop.
+// CRITICAL: this must match ONLY a headless one-shot -batchmode WebGL build of
+// THIS game (mvp_v1) — NOT an interactive Unity Editor on another project, and
+// NOT the persistent build daemon (which is also batchmode+mvp_v1 but must never
+// be mistaken for an orphaned one-shot build). A one-shot build always passes
+// '-executeMethod'; the daemon never does. So we require '-batchmode' + 'mvp_v1'
+// + '-executeMethod'. Async (spawned PowerShell) so it never blocks the loop.
 function checkUnityRunning() {
   return new Promise((resolve) => {
     let out = '';
@@ -85,7 +97,7 @@ function checkUnityRunning() {
     };
     const ps =
       "$p = Get-CimInstance Win32_Process -Filter \"Name='Unity.exe'\" -ErrorAction SilentlyContinue | " +
-      "Where-Object { $_.CommandLine -and $_.CommandLine -match '-batchmode' -and $_.CommandLine -match 'mvp_v1' }; " +
+      "Where-Object { $_.CommandLine -and $_.CommandLine -match '-batchmode' -and $_.CommandLine -match 'mvp_v1' -and $_.CommandLine -match '-executeMethod' }; " +
       "if ($p) { 'FOUND' } else { 'NONE' }";
     try {
       child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true });
@@ -112,11 +124,10 @@ const state = {
 
 // Debounce window: after a chat edit asks for a build, wait briefly for MORE
 // edits before actually starting, so a burst of quick edits collapses into ONE
-// build. NOTE: with the chat's minute-scale model latency, commits are usually
-// far apart, so in practice the bigger win is the in-flight COALESCING below;
-// this mainly helps the occasional rapid double-send. Tunable via env; set to 0
-// to start builds immediately.
-const DEBOUNCE_MS = Math.max(0, parseInt(process.env.AUTO_BUILD_DEBOUNCE_MS || '12000', 10) || 0);
+// build. Kept SHORT (default 3s) because chat replies are minutes apart, so the
+// in-flight COALESCING below is what handles the common case; this only catches a
+// genuine rapid double-send. Tunable via env; set to 0 to start immediately.
+const DEBOUNCE_MS = Math.max(0, parseInt(process.env.AUTO_BUILD_DEBOUNCE_MS || '3000', 10) || 0);
 
 let child = null;
 let timeoutHandle = null;
@@ -189,21 +200,30 @@ function startBuild(reason) {
   state.startedAt = new Date().toISOString();
   state.lastReason = reason || null;
 
-  console.log('[build] starting Unity rebuild', reason ? `(${reason})` : '');
-
-  // Write the build-start header ourselves (the parent), then let the DETACHED
-  // child append its own output. IMPORTANT (Windows): we do NOT pass inherited
-  // file descriptors to a detached child — that combination silently fails here
-  // (the child never runs). Instead the child is `cmd.exe` doing its OWN `>>`
-  // redirection with stdio:'ignore', which is the reliable Windows pattern for a
-  // fire-and-forget background process that (a) survives a parent/server restart
-  // and (b) actually logs. We still get the child's 'close' event for completion,
-  // and taskkill /T reaches the whole tree (cmd → powershell → Unity) on timeout.
+  // Header first so the log always shows a build was attempted.
   try {
     fs.appendFileSync(BUILD_LOG, `\n\n===== build start ${state.startedAt} ${reason || ''} =====\n`);
   } catch (_) { /* logging is best-effort */ }
 
-  // Build the inner command line. PowerShell runs the refresh script and merges
+  // Prefer the persistent daemon when it's alive (fast: no editor startup). Fall
+  // back to a one-shot cold build otherwise. The check is async so it never
+  // blocks the event loop; on any error we default to the reliable cold path.
+  checkDaemonAlive().then((alive) => {
+    if (!state.building) return; // finished/aborted while we were checking
+    if (alive) {
+      console.log('[build] using persistent daemon', reason ? `(${reason})` : '');
+      daemonBuild(reason);
+    } else {
+      coldBuild(reason);
+    }
+  }).catch(() => { if (state.building) coldBuild(reason); });
+}
+
+// One-shot build: launch a fresh headless Unity via refresh-preview.ps1. This is
+// the reliable fallback and the original behavior.
+function coldBuild(reason) {
+  console.log('[build] starting one-shot Unity rebuild', reason ? `(${reason})` : '');
+  // A DETACHED cmd.exe runs PowerShell, which runs refresh-preview.ps1 and merges
   // ALL its streams (*>&1 — including Write-Host, which its "Say" helper uses and
   // which a plain `>>` would MISS) then appends them to the log as UTF-8. cmd is
   // only the detach wrapper. `exit $LASTEXITCODE` propagates the script's real
@@ -252,6 +272,137 @@ function startBuild(reason) {
     // If the timeout already fired, finishBuild is a no-op guard below.
     finishBuild(code === 0 ? 'success' : 'failed', code === 0 ? null : `exit ${code}`);
   });
+}
+
+// Is the persistent build daemon alive? True when its heartbeat file was touched
+// within the freshness window. Async (fs.stat) so it never blocks the loop.
+// NOTE: only reliable when the daemon is IDLE — during a code change it recompiles
+// and domain-reloads, which PAUSES the heartbeat for many seconds. So this is used
+// for the initial "is a daemon available?" decision, NOT for mid-build liveness
+// (which uses the process PID via daemonProcessAlive).
+function checkDaemonAlive() {
+  return new Promise((resolve) => {
+    fs.stat(DAEMON_HEARTBEAT, (err, st) => {
+      if (err || !st) return resolve(false);
+      resolve((Date.now() - st.mtimeMs) < DAEMON_FRESH_MS);
+    });
+  });
+}
+
+// Read the daemon's Unity PID (written by start-build-daemon.ps1). Used for a
+// RELIABLE mid-build liveness check: a reloading daemon pauses its heartbeat but
+// its process stays alive, so only a dead PROCESS means "daemon crashed".
+function readDaemonPid() {
+  try {
+    const n = parseInt(fs.readFileSync(path.join(DAEMON_DIR, 'daemon.pid'), 'utf8').trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch (_) { return null; }
+}
+
+// Is a process alive? `process.kill(pid, 0)` sends no signal; it just checks
+// existence. ESRCH = gone; EPERM = exists but not ours (still alive).
+function pidAlive(pid) {
+  if (!pid) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return !!(e && e.code === 'EPERM'); }
+}
+
+// Fast path: ask the resident daemon to build, then publish. Polls the daemon's
+// result file. Robust failure handling:
+//   * SUCCESS  → publish the export → finish 'success'
+//   * FAILED   → finish 'failed' (a cold retry would just fail the same way)
+//   * daemon dies mid-build (heartbeat goes stale) → cold-build fallback (the
+//     project lock is now free, so a fresh Unity can run)
+//   * overall timeout → finish 'timeout'
+function daemonBuild(reason) {
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  try { if (fs.existsSync(DAEMON_RESULT)) fs.unlinkSync(DAEMON_RESULT); } catch (_) {}
+  // Log write is best-effort: a momentarily-locked build.log (EBUSY on Windows,
+  // e.g. a publish still flushing it) must NEVER derail the daemon path. Only a
+  // failure to write the actual REQUEST file is fatal (then cold-fall-back).
+  try { fs.appendFileSync(BUILD_LOG, `[daemon] requesting build id=${id} ${reason || ''}\n`); } catch (_) {}
+  try {
+    fs.writeFileSync(DAEMON_REQUEST, id);
+  } catch (err) {
+    console.error('[build] daemon request write failed → cold fallback', err && err.message);
+    return coldBuild(reason);
+  }
+
+  const startedAt = Date.now();
+  const daemonPid = readDaemonPid();
+  let deadChecks = 0;
+
+  timeoutHandle = setTimeout(() => {
+    finishBuild('timeout', 'daemon build exceeded limit');
+  }, BUILD_TIMEOUT_MS);
+
+  if (adoptedInterval) clearInterval(adoptedInterval);
+  adoptedInterval = setInterval(() => {
+    if (!state.building) return;
+
+    // 1) Result ready for OUR id?
+    let res = null;
+    try { if (fs.existsSync(DAEMON_RESULT)) res = fs.readFileSync(DAEMON_RESULT, 'utf8'); } catch (_) {}
+    if (res) {
+      const parts = res.split('|');
+      const gotId = (parts[0] || '').trim();
+      if (gotId === id) {
+        const status = (parts[1] || '').trim();
+        const msg = parts.slice(2).join('|').trim();
+        try { fs.unlinkSync(DAEMON_RESULT); } catch (_) {}
+        if (adoptedInterval) { clearInterval(adoptedInterval); adoptedInterval = null; }
+        if (timeoutHandle) { clearTimeout(timeoutHandle); timeoutHandle = null; }
+        if (status === 'SUCCESS') {
+          try { fs.appendFileSync(BUILD_LOG, `[daemon] ${msg}\n[daemon] publishing…\n`); } catch (_) {}
+          runPublish((ok) => finishBuild(ok ? 'success' : 'failed', ok ? null : 'publish failed'));
+        } else {
+          try { fs.appendFileSync(BUILD_LOG, `[daemon] FAILED: ${msg}\n`); } catch (_) {}
+          finishBuild('failed', msg || 'daemon build failed');
+        }
+        return;
+      }
+    }
+
+    // 2) Liveness. CRITICAL: a code change makes the daemon recompile + domain
+    // reload, which PAUSES its heartbeat for many seconds — so heartbeat staleness
+    // does NOT mean death. We check the PROCESS instead: only a dead daemon
+    // process means we can safely cold-fall-back (the project lock is now free).
+    // Two consecutive dead reads (poll is every 3s) confirm it before falling back.
+    if (Date.now() - startedAt > 8000 && daemonPid) {
+      if (pidAlive(daemonPid)) { deadChecks = 0; return; }
+      deadChecks++;
+      if (deadChecks >= 2) {
+        console.error('[build] daemon process exited mid-build → cold fallback');
+        try { fs.appendFileSync(BUILD_LOG, `[daemon] process exited → cold fallback\n`); } catch (_) {}
+        if (adoptedInterval) { clearInterval(adoptedInterval); adoptedInterval = null; }
+        if (timeoutHandle) { clearTimeout(timeoutHandle); timeoutHandle = null; }
+        coldBuild(reason);
+      }
+    }
+  }, 3000);
+}
+
+// Run publish-game.ps1 (copy the fresh export into docs/game, stamp, commit) as a
+// detached, self-logging child — same reliable Windows pattern as coldBuild. Calls
+// cb(true) on exit 0. Detached so a server restart mid-publish can't lose it, but
+// we still observe 'close' while the server lives.
+function runPublish(cb) {
+  const psCmd =
+    `powershell -ExecutionPolicy Bypass -NoProfile -Command ` +
+    `"& '${PUBLISH_SCRIPT}' -NoPush *>&1 | Out-File -FilePath '${BUILD_LOG}' -Append -Encoding utf8; exit $LASTEXITCODE"`;
+  let done = false;
+  const finish2 = (ok) => { if (done) return; done = true; cb(!!ok); };
+  let pub;
+  try {
+    pub = spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', psCmd], {
+      cwd: repo.REPO_ROOT, windowsHide: true, detached: true, stdio: 'ignore',
+      windowsVerbatimArguments: true,
+    });
+  } catch (e) { return finish2(false); }
+  try { pub.unref(); } catch (_) {}
+  const to = setTimeout(() => finish2(false), 4 * 60 * 1000);
+  pub.on('error', () => { clearTimeout(to); finish2(false); });
+  pub.on('close', (code) => { clearTimeout(to); finish2(code === 0); });
 }
 
 // Watch an already-running (external/orphaned) Unity build and finish — draining

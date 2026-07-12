@@ -5,3 +5,9 @@ npm-debug.log*
 !.env.example
 *.log
 .DS_Store
+
+# runtime artifacts (pids, split log streams, heartbeats)
+*.pid
+*.log.err
+*.log.out
+*.heartbeat

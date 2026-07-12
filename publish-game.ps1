@@ -78,10 +78,20 @@ $info | ConvertTo-Json | Set-Content -Path (Join-Path $Target 'build-info.json')
 Say "3. Stamped build-info.json ($builtAt)" 'Green'
 
 # --- 4. Commit ---
-git add -- docs/game | Out-Null
-$staged = git diff --cached --name-only
+# Git prints a benign "LF will be replaced by CRLF" warning to stderr. When a
+# caller MERGES this script's streams (*>&1, as the studio's daemon publish does)
+# AND ErrorActionPreference is Stop, that warning becomes a TERMINATING error and
+# aborts the commit. So for the git calls we drop to Continue, silence their
+# (informational) stderr, and check exit codes explicitly so real failures still
+# surface.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+
+git add -- docs/game 2>$null | Out-Null
+$staged = git diff --cached --name-only 2>$null
 if (-not $staged) {
     Say "Nothing changed. (Did you actually rebuild in Unity?)" 'Yellow'
+    $ErrorActionPreference = $prevEAP
     exit 0
 }
 
@@ -92,16 +102,28 @@ Refreshed the browser preview from the latest Unity WebGL export.
 
 Co-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>
 "@
-git commit -m $commitMsg | Out-Null
+git commit -m $commitMsg 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Say "X  git commit failed (exit $LASTEXITCODE)." 'Red'
+    $ErrorActionPreference = $prevEAP
+    exit 1
+}
 Say "4. Committed the new build" 'Green'
 
 # --- 5. Push to main (unless -NoPush) ---
 if ($NoPush) {
     Say "Skipping push (-NoPush). Run 'git push origin HEAD:main' when ready." 'Yellow'
+    $ErrorActionPreference = $prevEAP
     exit 0
 }
 Say "5. Pushing to main..." 'Cyan'
 git push origin HEAD:main
+if ($LASTEXITCODE -ne 0) {
+    Say "X  git push failed (exit $LASTEXITCODE)." 'Red'
+    $ErrorActionPreference = $prevEAP
+    exit 1
+}
+$ErrorActionPreference = $prevEAP
 Say "==============================================" 'DarkCyan'
 Say " Done! The portal preview will refresh in ~30s." 'Green'
 Say " Tell Warren to hit refresh and play. 🎮" 'White'
