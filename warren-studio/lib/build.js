@@ -102,40 +102,83 @@ function checkUnityRunning() {
 const state = {
   building: false,
   queued: false, // a rebuild was requested while one was already running
+  pending: false, // a rebuild is scheduled (debounce window) but not started yet
+  pendingSince: null, // ISO time the debounce window opened (for the UI timer)
   startedAt: null, // ISO string of the current build's start
   lastResult: null, // 'success' | 'failed' | 'error' | 'timeout'
   lastFinishedAt: null,
   lastReason: null,
 };
 
+// Debounce window: after a chat edit asks for a build, wait briefly for MORE
+// edits before actually starting, so a burst of quick edits collapses into ONE
+// build. NOTE: with the chat's minute-scale model latency, commits are usually
+// far apart, so in practice the bigger win is the in-flight COALESCING below;
+// this mainly helps the occasional rapid double-send. Tunable via env; set to 0
+// to start builds immediately.
+const DEBOUNCE_MS = Math.max(0, parseInt(process.env.AUTO_BUILD_DEBOUNCE_MS || '12000', 10) || 0);
+
 let child = null;
 let timeoutHandle = null;
 let adoptedInterval = null; // poller when we're watching an external/orphaned build
+let debounceTimer = null;
+let pendingReason = null;
 
 // Snapshot of build state for the /api/game/status endpoint (drives the UI).
 // Pure + synchronous — never shells out — so it's safe to call on every poll.
-// state.building is kept accurate by the builds we start AND by the startup
-// adopt-check that detects an orphaned build after a restart.
+// "building" is true for BOTH a scheduled (debounced) build and a running one,
+// so the UI shows the rebuild animation continuously from the moment it's asked.
 function status() {
+  const building = state.building || state.pending;
   return {
     enabled: autoBuildEnabled(),
-    building: state.building,
+    building,
     queued: state.queued,
-    startedAt: state.startedAt,
+    startedAt: state.startedAt || state.pendingSince,
     lastResult: state.lastResult,
     lastFinishedAt: state.lastFinishedAt,
   };
 }
 
-// Public entry point. Ask for a rebuild; coalesces while one is running.
+// Public entry point. Ask for a rebuild. Two layers of collapsing:
+//   * DEBOUNCE: quick successive requests (before a build starts) reset a short
+//     timer, so a burst becomes ONE build.
+//   * COALESCE: requests that arrive while a build is RUNNING set a single
+//     "queued" flag, draining to exactly one more build when the current ends.
 // Returns { ok, queued } or { ok:false, reason }.
 function requestBuild(reason) {
   if (!autoBuildEnabled()) return { ok: false, reason: 'disabled' };
+
+  // A build is already running → coalesce into exactly one follow-up rebuild.
   if (state.building) {
     state.queued = true;
     console.log('[build] busy — coalesced another rebuild request', reason ? `(${reason})` : '');
     return { ok: true, queued: true };
   }
+
+  // Not building yet → (re)start the debounce window so rapid edits collapse.
+  pendingReason = reason || pendingReason;
+  if (DEBOUNCE_MS > 0) {
+    const alreadyPending = state.pending;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (!state.pending) {
+      state.pending = true;
+      state.pendingSince = new Date().toISOString();
+      console.log('[build] scheduled in', DEBOUNCE_MS + 'ms', reason ? `(${reason})` : '');
+    } else {
+      console.log('[build] debounced — extending the window', reason ? `(${reason})` : '');
+    }
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      state.pending = false;
+      state.pendingSince = null;
+      const r = pendingReason;
+      pendingReason = null;
+      startBuild(r);
+    }, DEBOUNCE_MS);
+    return { ok: true, queued: alreadyPending };
+  }
+
   startBuild(reason);
   return { ok: true, queued: false };
 }
