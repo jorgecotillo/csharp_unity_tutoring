@@ -25,7 +25,7 @@ namespace GoblinSiege.Bootstrap
     ///   • all positions mapped 2D (x,y) → 3D (x,0,y) so north = +Z, south = −Z.
     /// The HUD, onboarding banner, threshold callouts and screen-pulse are unchanged.
     ///
-    /// Controls: WASD/Arrows move the Warlord. 1/2/3 select a squad, ` selects all,
+    /// Controls: WASD/Arrows move the Warlord. 1/2/3/4 select a squad, ` selects all,
     /// right-click orders them (raycast onto the ground), H sounds the Warhorn.
     /// </summary>
     public class RaidBootstrap : MonoBehaviour
@@ -309,6 +309,33 @@ namespace GoblinSiege.Bootstrap
             // breach point. Thin (G4) so they punctuate without walling off the view.
             SpawnProp(VisualLibrary.KeyWatchtower, -2.0f, z, 0f, parent);
             SpawnProp(VisualLibrary.KeyWatchtower,  2.0f, z, 0f, parent);
+
+            // FULL ENCLOSURE: side + back walls so the village is a sealed box and the
+            // ONLY way in is to breach the central gate (Warren: "I can go around the
+            // wall and get it"). Left/right palisades run north from the gate line to
+            // the back wall, which closes the square behind the barracks/chapel.
+            BuildVillageEnclosure(parent, gateZ: z, backZ: 24f, sideX: 13f);
+        }
+
+        /// <summary>
+        /// Seals the village into a square so the gate is the only entrance. Adds two
+        /// side palisades (east/west, running north along Z) and one back palisade
+        /// (north, running along X). Every segment keeps its collider (KeyWall) so
+        /// units are physically blocked and cannot slip around the flanks.
+        /// </summary>
+        private void BuildVillageEnclosure(Transform parent, float gateZ, float backZ, float sideX)
+        {
+            // KeyWall is a 4-wide timber segment. Step by ~4 so the line reads solid.
+            // Side walls: rotate 90° so the 4-unit length runs north-south (along Z).
+            for (float wz = gateZ + 2f; wz <= backZ; wz += 4f)
+            {
+                SpawnProp(VisualLibrary.KeyWall, -sideX, wz, 90f, parent);
+                SpawnProp(VisualLibrary.KeyWall,  sideX, wz, 90f, parent);
+            }
+
+            // Back wall: segments run east-west (along X), closing the top of the box.
+            for (float wx = -sideX + 1f; wx <= sideX - 1f; wx += 4f)
+                SpawnProp(VisualLibrary.KeyWall, wx, backZ, 0f, parent);
         }
 
         /// <summary>
@@ -538,6 +565,7 @@ namespace GoblinSiege.Bootstrap
             map.AddAction("SelectSquad1", InputActionType.Button, "<Keyboard>/1");
             map.AddAction("SelectSquad2", InputActionType.Button, "<Keyboard>/2");
             map.AddAction("SelectSquad3", InputActionType.Button, "<Keyboard>/3");
+            map.AddAction("SelectSquad4", InputActionType.Button, "<Keyboard>/4");
             map.AddAction("SelectAll", InputActionType.Button, "<Keyboard>/backquote");
             return asset;
         }
@@ -633,14 +661,14 @@ namespace GoblinSiege.Bootstrap
             // ═══════════════════════════════════════════════════════════════════
             _goalBannerText = MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.5f, 0.85f),
-                "Send your SAPPER squad to breach the gate · Loot the quota\nWalk near the GOLD disc (DOOR) to open it · Reach the BLUE zone to escape!",
+                "Send your SAPPER squad (press 4) to breach the gate · Loot the quota\nWalk near the GOLD disc (DOOR) to open it · Reach the BLUE zone to escape!",
                 fontSize: 20);
             StartCoroutine(FadeOutAfterDelay(_goalBannerText, delaySeconds: 5f, fadeDuration: 1f));
 
             // Controls Card: small persistent reference in bottom-left corner.
             MakeCenteredText(canvasGo.transform, font,
                 new Vector2(0.02f, 0.02f),
-                "WASD move · 1/2/3 select squad · ` select all\nRight-click order · H = Warhorn (once) · Walk near GOLD disc = open door",
+                "WASD move · 1/2/3/4 select squad (4 = SAPPER) · ` select all\nRight-click order · H = Warhorn (once) · Walk near GOLD disc = open door",
                 fontSize: 12,
                 anchor: TextAnchor.LowerLeft,
                 pivotAnchor: new Vector2(0f, 0f));

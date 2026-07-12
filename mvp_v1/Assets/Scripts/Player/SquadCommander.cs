@@ -24,6 +24,7 @@ namespace GoblinSiege.Player
         private InputAction _selectSquad1;
         private InputAction _selectSquad2;
         private InputAction _selectSquad3;
+        private InputAction _selectSquad4;
         private InputAction _selectAll;
 
         private readonly List<Squad> _selection = new();
@@ -51,12 +52,15 @@ namespace GoblinSiege.Player
             _selectSquad1 = _input.actions["SelectSquad1"];
             _selectSquad2 = _input.actions["SelectSquad2"];
             _selectSquad3 = _input.actions["SelectSquad3"];
+            // Squad #4 (the Sapper band) — keys 1-3 could never reach it before.
+            _selectSquad4 = _input.actions["SelectSquad4"];
             _selectAll = _input.actions["SelectAll"];
 
             _orderAction.performed += OnOrder;
             _selectSquad1.performed += OnSelect1;
             _selectSquad2.performed += OnSelect2;
             _selectSquad3.performed += OnSelect3;
+            if (_selectSquad4 != null) _selectSquad4.performed += OnSelect4;
             _selectAll.performed += OnSelectAll;
         }
 
@@ -66,12 +70,14 @@ namespace GoblinSiege.Player
             if (_selectSquad1 != null) _selectSquad1.performed -= OnSelect1;
             if (_selectSquad2 != null) _selectSquad2.performed -= OnSelect2;
             if (_selectSquad3 != null) _selectSquad3.performed -= OnSelect3;
+            if (_selectSquad4 != null) _selectSquad4.performed -= OnSelect4;
             if (_selectAll != null) _selectAll.performed -= OnSelectAll;
         }
 
         private void OnSelect1(InputAction.CallbackContext _) => SelectOnly(0);
         private void OnSelect2(InputAction.CallbackContext _) => SelectOnly(1);
         private void OnSelect3(InputAction.CallbackContext _) => SelectOnly(2);
+        private void OnSelect4(InputAction.CallbackContext _) => SelectOnly(3);
 
         private void OnSelectAll(InputAction.CallbackContext _)
         {
