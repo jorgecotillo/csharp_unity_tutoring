@@ -11,6 +11,12 @@
   // we already talked about (multi-turn memory). "New chat" rotates this.
   let chatSessionId = newSessionId();
 
+  // A screenshot Warren pasted / dropped / picked, waiting to be sent with the
+  // next message. Held as a base64 data URL.
+  let pendingImage = null;
+  let pendingImageName = '';
+  const MAX_IMAGE_MB = 10;
+
   function newSessionId() {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') {
       return window.crypto.randomUUID();
@@ -505,9 +511,109 @@
   function setChatBusy(busy) {
     const input = $('#chatInput');
     const send = $('#chatSend');
+    const attach = $('#attachBtn');
     if (input) input.disabled = busy;
     if (send) send.disabled = busy;
+    if (attach) attach.disabled = busy;
     if (!busy && input) input.focus();
+  }
+
+  // ---- Image attachments (paste / drag-drop / 📎 button) -----------------
+  function setPendingImage(dataUrl, name) {
+    pendingImage = dataUrl;
+    pendingImageName = name || 'screenshot.png';
+    const wrap = $('#imgPreview');
+    const thumb = $('#imgPreviewThumb');
+    const nameEl = $('#imgPreviewName');
+    if (thumb) thumb.src = dataUrl;
+    if (nameEl) nameEl.textContent = pendingImageName;
+    if (wrap) wrap.hidden = false;
+    scrollChat();
+  }
+
+  function clearPendingImage() {
+    pendingImage = null;
+    pendingImageName = '';
+    const wrap = $('#imgPreview');
+    const thumb = $('#imgPreviewThumb');
+    if (thumb) thumb.removeAttribute('src');
+    if (wrap) wrap.hidden = true;
+    const fileInput = $('#imgFileInput');
+    if (fileInput) fileInput.value = '';
+  }
+
+  function isAllowedImage(file) {
+    return !!file && /^image\/(png|jpe?g|webp|gif)$/i.test(file.type || '');
+  }
+
+  // Read a File/Blob into a data URL and stage it as the pending screenshot.
+  function readImageFile(file) {
+    if (!isAllowedImage(file)) {
+      addBubble('bot', '<p class="chat-error">Only images (PNG, JPG, WebP, GIF) can be attached. 🖼️</p>');
+      return;
+    }
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+      addBubble('bot', '<p class="chat-error">That image is a bit big — keep it under ' + MAX_IMAGE_MB + ' MB. 📦</p>');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPendingImage(String(reader.result), file.name || 'screenshot.png');
+    reader.onerror = () => addBubble('bot', '<p class="chat-error">Couldn\'t read that image. Try again! 🖼️</p>');
+    reader.readAsDataURL(file);
+  }
+
+  function wireImageAttach() {
+    const attachBtn = $('#attachBtn');
+    const fileInput = $('#imgFileInput');
+    const removeBtn = $('#imgPreviewRemove');
+    const input = $('#chatInput');
+    const pane = document.querySelector('.pane-right');
+    const dropHint = $('#chatDropHint');
+
+    if (attachBtn && fileInput) {
+      attachBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        const f = fileInput.files && fileInput.files[0];
+        if (f) readImageFile(f);
+      });
+    }
+    if (removeBtn) removeBtn.addEventListener('click', clearPendingImage);
+
+    // Paste a screenshot from the clipboard (Ctrl+V) while typing in the chat.
+    if (input) {
+      input.addEventListener('paste', (e) => {
+        const items = (e.clipboardData && e.clipboardData.items) || [];
+        for (const it of items) {
+          if (it.kind === 'file' && /^image\//i.test(it.type)) {
+            const f = it.getAsFile();
+            if (f) { e.preventDefault(); readImageFile(f); return; }
+          }
+        }
+      });
+    }
+
+    // Drag-drop a screenshot anywhere on the chat pane.
+    if (pane) {
+      let dragDepth = 0;
+      const hasFiles = (e) => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf('Files') !== -1);
+      const showHint = (show) => { if (dropHint) dropHint.hidden = !show; };
+      pane.addEventListener('dragenter', (e) => {
+        if (hasFiles(e)) { e.preventDefault(); dragDepth++; showHint(true); }
+      });
+      pane.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+      pane.addEventListener('dragleave', () => {
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) showHint(false);
+      });
+      pane.addEventListener('drop', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth = 0;
+        showHint(false);
+        const f = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) readImageFile(f);
+      });
+    }
   }
 
   // Parse one SSE frame ("event: x\ndata: {...}") into { event, data }.
@@ -528,8 +634,12 @@
     return { event, data };
   }
 
-  async function sendChat(message) {
-    addBubble('user', '<p>' + escapeHtml(message) + '</p>');
+  async function sendChat(message, image) {
+    // User bubble shows the screenshot (if any) above the typed text.
+    let userHtml = '';
+    if (image) userHtml += '<img class="chat-img" src="' + image + '" alt="attached screenshot" />';
+    if (message) userHtml += '<p>' + escapeHtml(message) + '</p>';
+    addBubble('user', userHtml || '<p>🖼️</p>');
 
     // Build a "working" bubble with a live activity line (what Copilot is doing
     // right now) + a seconds counter, and a separate area the answer streams
@@ -580,10 +690,12 @@
 
     setChatBusy(true);
     try {
+      const payload = { message, sessionId: chatSessionId };
+      if (image) payload.image = image;
       const res = await api('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, sessionId: chatSessionId }),
+        body: JSON.stringify(payload),
       });
 
       // Non-streaming error (e.g. 400/429) comes back as JSON, not SSE.
@@ -671,6 +783,7 @@
 
   function startNewChat() {
     chatSessionId = newSessionId();
+    clearPendingImage();
     const body = $('#chatBody');
     if (body) body.innerHTML = WELCOME_HTML;
     const input = $('#chatInput');
@@ -688,9 +801,11 @@
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const message = input.value.trim();
-      if (!message) return;
+      const image = pendingImage; // snapshot before we clear the preview
+      if (!message && !image) return;
       input.value = '';
-      sendChat(message);
+      clearPendingImage();
+      sendChat(message, image);
     });
 
     const newBtn = $('#newChat');
@@ -708,6 +823,7 @@
     wireTabs();
     wireReload();
     wireChat();
+    wireImageAttach();
 
     loadMe();
     loadSpec();

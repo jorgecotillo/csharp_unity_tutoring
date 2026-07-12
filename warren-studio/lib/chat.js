@@ -101,6 +101,7 @@ function buildPrompt(userMessage) {
     '- After you finish editing, write ONE short friendly sentence saying what you changed and which file(s) — Warren will see his game rebuild automatically.',
     '- You cannot run terminal/git commands, and you do not need to — just save your file edits and the studio handles the rest.',
     '- Keep answers short, upbeat, and easy for a middle-schooler. Simple words, a little fun (emojis welcome ⚔️). Avoid scary jargon; explain any term you must use.',
+    '- Warren may attach a SCREENSHOT of his game. If an image is attached, look at it carefully and use what you see (positions, colors, on-screen text) to understand and fix his problem.',
     '',
     "Warren's message:",
     userMessage,
@@ -154,8 +155,10 @@ function reasoningStatus(content) {
 
 // Spawn the CLI for one message. Calls handlers.onDelta(text) as tokens stream,
 // handlers.onDone({text, usage, model}) on success, handlers.onError(err) on
-// failure. Returns { cancel() } to kill the child if the client disconnects.
-function streamChat(userMessage, handlers, sessionId) {
+// failure. `attachments` is an optional array of local file paths (e.g. a
+// screenshot Warren pasted) forwarded to the model via --attachment. Returns
+// { cancel() } to kill the child if the client disconnects.
+function streamChat(userMessage, handlers, sessionId, attachments) {
   const onDelta = (handlers && handlers.onDelta) || (() => {});
   const onDone = (handlers && handlers.onDone) || (() => {});
   const onError = (handlers && handlers.onError) || (() => {});
@@ -176,6 +179,11 @@ function streamChat(userMessage, handlers, sessionId) {
     '--model', CHAT_MODEL,
     ...(CHAT_CONTEXT ? ['--context', CHAT_CONTEXT] : []),
     ...(CHAT_EFFORT ? ['--effort', CHAT_EFFORT] : []),
+    // Forward any attached files (e.g. a pasted screenshot) so the model can SEE
+    // them. Each path becomes its own --attachment flag.
+    ...(Array.isArray(attachments)
+      ? attachments.filter(Boolean).flatMap((a) => ['--attachment', a])
+      : []),
     '--silent',
     '--no-color',
     '--no-ask-user',

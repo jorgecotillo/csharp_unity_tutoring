@@ -101,7 +101,20 @@
             <p>I can read your game code and the spec, then explain it and suggest changes. ⚔️</p>
           </div>
         </div>
+        <div id="chatDropHint" class="chat-drop-hint" hidden>🖼️ Drop your screenshot here!</div>
+        <div id="imgPreview" class="img-preview" hidden>
+          <img id="imgPreviewThumb" class="img-preview-thumb" alt="attached screenshot" />
+          <span id="imgPreviewName" class="img-preview-name"></span>
+          <button id="imgPreviewRemove" class="img-preview-remove" type="button" title="Remove image">✕</button>
+        </div>
         <form id="chatForm" class="chat-input-row">
+          <input
+            id="imgFileInput"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            hidden
+          />
+          <button id="attachBtn" class="ghost-btn attach-btn" type="button" title="Attach a screenshot">📎</button>
           <input
             id="chatInput"
             type="text"

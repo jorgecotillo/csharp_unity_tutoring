@@ -7,6 +7,8 @@ require('dotenv').config();
 
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
 const express = require('express');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -48,7 +50,15 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '64kb' }));
+// Most routes only need a tiny JSON body. The chat route may carry a pasted
+// screenshot (base64 data URL), so it gets a much larger limit — scoped to just
+// that one route so the rest of the API keeps a tight 64kb cap.
+const smallJson = express.json({ limit: '64kb' });
+const chatJson = express.json({ limit: '16mb' });
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/api/chat') return chatJson(req, res, next);
+  return smallJson(req, res, next);
+});
 
 const sessionSecret = process.env.SESSION_SECRET || (!IS_PROD ? 'dev-insecure-secret-change-me' : null);
 if (!sessionSecret) {
@@ -230,6 +240,52 @@ function rateLimit(username) {
   return { ok: true };
 }
 
+// ---- Chat image attachments (pasted screenshots) -------------------------
+// Warren can paste / drag-drop a screenshot into the chat; the client sends it
+// as a base64 data URL. We validate type + size, write it to a short-lived temp
+// file, hand the path to the CLI via --attachment, then delete it after the
+// turn. Images only, capped well under the chat body limit.
+const IMAGE_MIME_EXT = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB (base64 stays under the 16mb json cap)
+const UPLOAD_DIR = path.join(os.tmpdir(), 'warren-studio-uploads');
+
+// Decode a base64 data URL and write it to a temp file. Returns { path } or
+// { error } with a kid-friendly message.
+function saveImageAttachment(dataUrl) {
+  if (typeof dataUrl !== 'string') return { error: 'That image looked empty. 🖼️' };
+  const m = dataUrl.match(/^data:([a-z0-9.+/-]+);base64,([\s\S]+)$/i);
+  if (!m) return { error: "That image didn't look right. Try pasting it again! 🖼️" };
+  const ext = IMAGE_MIME_EXT[m[1].toLowerCase()];
+  if (!ext) return { error: 'Only images (PNG, JPG, WebP, GIF) can be attached. 🖼️' };
+  let buf;
+  try { buf = Buffer.from(m[2], 'base64'); } catch (_) { return { error: "Couldn't read that image. 🖼️" }; }
+  if (!buf || buf.length === 0) return { error: 'That image was empty. 🖼️' };
+  if (buf.length > MAX_IMAGE_BYTES) {
+    return { error: `That image is a bit big — keep it under ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB. 📦` };
+  }
+  try {
+    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    const file = path.join(UPLOAD_DIR, `${crypto.randomUUID()}.${ext}`);
+    fs.writeFileSync(file, buf);
+    return { path: file };
+  } catch (e) {
+    console.error('[chat] failed to save image attachment', e && e.message);
+    return { error: "Couldn't save that image. Tell Jorge! 🔧" };
+  }
+}
+
+function cleanupTempFiles(paths) {
+  for (const p of paths || []) {
+    try { fs.unlinkSync(p); } catch (_) { /* best effort */ }
+  }
+}
+
 app.post('/api/chat', requireApiAuth, (req, res) => {
   const username = req.session.username;
   // Capture the push identity NOW (synchronously) — the token store lookup must
@@ -244,15 +300,33 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
   let sessionId = (req.body && typeof req.body.sessionId === 'string') ? req.body.sessionId.trim() : '';
   if (!UUID_RE.test(sessionId)) sessionId = crypto.randomUUID();
 
-  if (!message) {
+  // Optional pasted / dropped screenshot (base64 data URL). Validate + write to
+  // a temp file; the path is handed to the CLI and deleted after the turn.
+  const attachments = [];
+  const tempPaths = [];
+  if (req.body && req.body.image) {
+    const saved = saveImageAttachment(req.body.image);
+    if (saved.error) return res.status(400).json({ error: saved.error });
+    attachments.push(saved.path);
+    tempPaths.push(saved.path);
+  }
+
+  // A turn needs SOMETHING — text or an image. When only an image was sent, use
+  // a friendly default prompt so the model knows to look at it.
+  if (!message && attachments.length === 0) {
     return res.status(400).json({ error: 'Type a message first! ✍️' });
   }
+  const effectiveMessage = message ||
+    'Here is a screenshot of my game. 👀 Take a look and help me!';
+
   if (message.length > MAX_MESSAGE_LEN) {
+    cleanupTempFiles(tempPaths);
     return res.status(400).json({ error: `That message is a bit long — keep it under ${MAX_MESSAGE_LEN} characters. ✂️` });
   }
 
   const gate = rateLimit(username);
   if (!gate.ok) {
+    cleanupTempFiles(tempPaths);
     return res.status(429).json({
       error: `Whoa, you're on fire! 🔥 You've hit the chat limit — try again in about ${gate.retryMin} minute${gate.retryMin === 1 ? '' : 's'}. ⏳`,
     });
@@ -287,7 +361,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
   // Track completion so the disconnect handler below never kills a healthy run.
   let finished = false;
 
-  const session = chat.streamChat(message, {
+  const session = chat.streamChat(effectiveMessage, {
     onStatus(label) {
       if (finished) return;
       send('status', { label: String(label || '') });
@@ -307,7 +381,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
       // token + pushes under the in-process lock), so we await it.
       let gameEdit = null;
       try {
-        gameEdit = await git.commitGameEdits(message, pusher);
+        gameEdit = await git.commitGameEdits(effectiveMessage, pusher);
       } catch (e) {
         console.error('[git] commit failed', e && e.message ? e.message : e);
         gameEdit = { changed: false, error: true };
@@ -344,7 +418,7 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
       send('error', { error: "Hmm, my forge sputtered. 🔧 Give it another try in a sec!" });
       res.end();
     },
-  }, sessionId);
+  }, sessionId, attachments);
 
   // If Warren genuinely closes the tab / navigates away mid-answer, kill the CLI
   // child. We listen on the RESPONSE (not the request): req's 'close' fires as
@@ -353,6 +427,9 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
   res.on('close', () => {
     clearInterval(heartbeat);
     if (!finished) session.cancel();
+    // The CLI has read the attachment by now (success, error, or cancel all
+    // land here) — delete the temp screenshot so uploads don't pile up.
+    cleanupTempFiles(tempPaths);
   });
 });
 
