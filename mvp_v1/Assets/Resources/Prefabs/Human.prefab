@@ -290,11 +290,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Paladin J Nordstrom
       objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 150c619b40f7405419a290bd89dba9cc, type: 3}
+    - target: {fileID: 5866666021909216657, guid: 72eaf6669ad2cdb4089155afecd185e7, type: 3}
       propertyPath: m_Controller
       value: 
-      objectReference: {fileID: 9100000, guid: ec113a1e3cbdcf346bc6d1c1ed9ccd73, type: 2}
-    - target: {fileID: 5866666021909216657, guid: 150c619b40f7405419a290bd89dba9cc, type: 3}
+      objectReference: {fileID: 9100000, guid: 6fd054798d0e5ba44925f447e54db4ba, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 72eaf6669ad2cdb4089155afecd185e7, type: 3}
       propertyPath: m_ApplyRootMotion
       value: 0
       objectReference: {fileID: 0}
@@ -302,14 +302,14 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 150c619b40f7405419a290bd89dba9cc, type: 3}
+  m_SourcePrefab: {fileID: 100100000, guid: 72eaf6669ad2cdb4089155afecd185e7, type: 3}
 --- !u!137 &655644489479008316 stripped
 SkinnedMeshRenderer:
-  m_CorrespondingSourceObject: {fileID: -4468000557298650176, guid: 150c619b40f7405419a290bd89dba9cc, type: 3}
+  m_CorrespondingSourceObject: {fileID: -4468000557298650176, guid: 72eaf6669ad2cdb4089155afecd185e7, type: 3}
   m_PrefabInstance: {fileID: 5253211582948819964}
   m_PrefabAsset: {fileID: 0}
 --- !u!4 &5723390574721803287 stripped
 Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 150c619b40f7405419a290bd89dba9cc, type: 3}
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 72eaf6669ad2cdb4089155afecd185e7, type: 3}
   m_PrefabInstance: {fileID: 5253211582948819964}
   m_PrefabAsset: {fileID: 0}

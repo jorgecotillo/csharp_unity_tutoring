@@ -260,6 +260,9 @@ The brief's payoff is **lots of units on screen at once** in the Act 3 sieges. D
 - **Alarm escalation feedback:** screen edge reddens, a horn blares, music intensifies each threshold.
 - Screen-shake on gate breach and vault crack.
 - Berserk = red tint + speed-up; Wolf-Charge = dash streak; Warhorn = screen pulse + alarm bar visibly drops.
+- **Mini health bars** float over EVERY unit (goblin, human, Warlord) — a small green→red bar (UnitHealthBar) so the player reads everyone's HP at a glance.
+- **Warlord's Slash** spawns a red slash VFX (VfxLibrary key `Slash_Red`); **Sapper wall breach** spawns explosion + smoke VFX (keys `Explosion`, `Smoke`). These load "Magic Effects FREE" prefabs from `Resources/VFX/<key>` if present, else play a built-in particle fallback.
+- **Characters:** Mixamo models are swappable — the Warlord uses **Maw** and the human garrison uses **Paladin** (swap the two prefabs under `Resources/Prefabs`).
 - Day-of-raid → win/lose fade transitions.
 
 ### Audio brief (hand off to `audio-game-designer`)

@@ -14,8 +14,8 @@ namespace GoblinSiege.EditorTools
     // characters (3D_MIGRATION_SPEC Phase C). EDITOR-ONLY.
     // ═══════════════════════════════════════════════════════════════════════════
     // Builds TWO art prefabs from the FBXs already imported under Assets/Art:
-    //   • Paladin J Nordstrom → Resources/Prefabs/Warlord.prefab  (the PLAYER hero)
-    //   • Maw J Laygo         → Resources/Prefabs/Human.prefab    (the ENEMY garrison)
+    //   • Maw J Laygo         → Resources/Prefabs/Warlord.prefab  (the PLAYER hero)
+    //   • Paladin J Nordstrom → Resources/Prefabs/Human.prefab    (the ENEMY garrison)
     //
     // Each prefab = the Humanoid model + retargeted Walk/Run clips + an
     // AnimatorController (Idle→Walk→Run blended by a float "Speed") + a Rigidbody
@@ -60,18 +60,18 @@ namespace GoblinSiege.EditorTools
             public float TargetHeight;      // world height in metres
         }
 
-        // PLAYER hero = Paladin. No HumanUnit/ring — BuildPlayer adds Warlord logic.
+        // PLAYER hero = Maw. No HumanUnit/ring — BuildPlayer adds Warlord logic.
         private static CharDef Warlord()
         {
-            const string f = "Assets/Art/Characters/Paladin";
+            const string f = "Assets/Art/Characters/Maw";
             return new CharDef
             {
                 Name = "Warlord", Folder = f,
-                BaseFbx = f + "/Paladin J Nordstrom.fbx",
-                WalkFbx = f + "/Paladin J Nordstrom@Walking.fbx",
-                RunFbx  = f + "/Paladin J Nordstrom@Running.fbx",
+                BaseFbx = f + "/Maw J Laygo.fbx",
+                WalkFbx = f + "/Maw J Laygo@Walking.fbx",
+                RunFbx  = f + "/Maw J Laygo@Running.fbx",
                 TexFolder = f + "/Textures",
-                Controller = f + "/PaladinAnimator.controller",
+                Controller = f + "/MawAnimator.controller",
                 RingMat = f + "/AlertRing.mat",
                 Prefab = "Assets/Resources/Prefabs/Warlord.prefab",
                 IncludeHumanUnit = false, IncludeAlertRing = false,
@@ -79,19 +79,21 @@ namespace GoblinSiege.EditorTools
             };
         }
 
-        // ENEMY garrison = Maw. Full gameplay: HumanUnit FSM + red alert ring.
+        // ENEMY garrison = Paladin. Full gameplay: HumanUnit FSM + red alert ring.
         private static CharDef Human()
         {
-            const string f = "Assets/Art/Characters/Maw";
+            const string f = "Assets/Art/Characters/Paladin";
             return new CharDef
             {
                 Name = "Human", Folder = f,
-                BaseFbx = f + "/Maw J Laygo.fbx",
-                WalkFbx = f + "/Maw J Laygo@Walking.fbx",
-                RunFbx  = f + "/Maw J Laygo@Running.fbx",
+                BaseFbx = f + "/Paladin J Nordstrom.fbx",
+                WalkFbx = f + "/Paladin J Nordstrom@Walking.fbx",
+                RunFbx  = f + "/Paladin J Nordstrom@Running.fbx",
                 TexFolder = f + "/Textures",
-                Controller = f + "/MawAnimator.controller",
-                RingMat = f + "/AlertRing.mat",
+                Controller = f + "/PaladinAnimator.controller",
+                // AlertRing.mat is a generic red ring that only lives in the Maw
+                // folder — reuse it here (Paladin has none of its own).
+                RingMat = "Assets/Art/Characters/Maw/AlertRing.mat",
                 Prefab = "Assets/Resources/Prefabs/Human.prefab",
                 IncludeHumanUnit = true, IncludeAlertRing = true,
                 TargetHeight = 1.8f,

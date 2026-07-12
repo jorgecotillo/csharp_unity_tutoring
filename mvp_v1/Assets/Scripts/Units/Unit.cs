@@ -142,6 +142,12 @@ namespace GoblinSiege.Units
             // Cache the renderer (MeshRenderer for primitives) and an MPB for tinting.
             BodyRenderer = GetComponentInChildren<Renderer>();
             _mpb = new MaterialPropertyBlock();
+
+            // Mini floating HP bar over EVERY unit (goblin, human, Warlord). Added
+            // here — the single chokepoint every combatant runs through — so no
+            // spawner can forget it. It's a self-contained visual (see UnitHealthBar).
+            if (GetComponent<UnitHealthBar>() == null)
+                gameObject.AddComponent<UnitHealthBar>();
         }
 
         protected void ApplyStats(Team unitTeam, UnitStats stats)

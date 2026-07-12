@@ -88,6 +88,12 @@ namespace GoblinSiege.Systems
             Vector3 center = transform.position + Vector3.up * 0.6f;
             Color woodColor = VisualLibrary.GateBrown;
 
+            // Explosion + smoke VFX for the Sapper blowing the wall. Uses the Magic
+            // Effects FREE prefabs if present in Resources/VFX (keys "Explosion" and
+            // "Smoke"), otherwise code-built fallback bursts (see VfxLibrary).
+            VfxLibrary.Play(VfxLibrary.KeyExplosion, center, Quaternion.identity, 1.5f);
+            VfxLibrary.Play(VfxLibrary.KeySmoke, center, Quaternion.identity, 1.5f);
+
             // 1) Launch the gate panel off its hinges.
             var panelBody = gameObject.AddComponent<Rigidbody>();
             panelBody.useGravity = true;

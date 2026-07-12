@@ -1,6 +1,7 @@
 using GoblinSiege.Systems;
 using GoblinSiege.UI;
 using GoblinSiege.Units;
+using GoblinSiege.Visual;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -181,6 +182,12 @@ namespace GoblinSiege.Player
 
             // Carve every enemy in the forward cone. Damage is applied right away.
             CombatRegistry.DamageEnemiesInArc(_warlordUnit, dir, slashRange, SlashHalfAngleCos, slashDamage);
+
+            // Red slash effect — plays a "Slash_Red" VFX (Magic Effects FREE if the
+            // prefab is dropped into Resources/VFX, else a built-in red slash burst).
+            // Spawned a bit in front of the Warlord at chest height, facing the swing.
+            Vector3 slashFxPos = transform.position + Vector3.up * 1.1f + dir * 1.0f;
+            VfxLibrary.Play(VfxLibrary.KeySlashRed, slashFxPos, Quaternion.LookRotation(dir, Vector3.up));
 
             // Juice: a heavy swing sound and a punchy camera shake.
             SfxManager.PlayExplosion(0.7f);
