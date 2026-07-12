@@ -47,7 +47,7 @@ namespace GoblinSiege.Visual
         // Extraction blue. Spawners reference these so the readability language is
         // defined in exactly ONE place.
         // ───────────────────────────────────────────────────────────────────────
-        public static readonly Color GoblinGreen    = new(0.35f, 0.80f, 0.30f);
+        public static readonly Color GoblinGreen    = new(0.55f, 0.90f, 0.15f);
         public static readonly Color HumanRed        = new(0.85f, 0.25f, 0.25f);
         public static readonly Color WarlordCyan     = new(0.20f, 0.95f, 0.95f);
         public static readonly Color LootGold        = new(0.95f, 0.80f, 0.20f);
