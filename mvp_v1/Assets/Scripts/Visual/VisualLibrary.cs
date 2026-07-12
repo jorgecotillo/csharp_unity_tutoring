@@ -66,6 +66,8 @@ namespace GoblinSiege.Visual
         public static readonly Color BarnRed      = new(0.50f, 0.27f, 0.20f); // barn / granary timber
         public static readonly Color BarracksWood = new(0.38f, 0.30f, 0.24f); // garrison barracks
         public static readonly Color FoliageGreen = new(0.20f, 0.42f, 0.18f); // tree canopy
+        public static readonly Color FoliageGreenLight = new(0.28f, 0.52f, 0.24f); // canopy highlight
+        public static readonly Color TrunkBrown   = new(0.36f, 0.26f, 0.17f); // tree trunk
         public static readonly Color RockGrey     = new(0.50f, 0.50f, 0.50f); // boulders
         public static readonly Color HayYellow    = new(0.74f, 0.62f, 0.28f); // haystacks
         public static readonly Color StallWood    = new(0.55f, 0.42f, 0.28f); // market stall
@@ -137,6 +139,11 @@ namespace GoblinSiege.Visual
         // ───────────────────────────────────────────────────────────────────────
         private static GameObject BuildPrimitive(string key, Vector3 pos, Quaternion rot, Transform parent)
         {
+            // A tree is a MULTI-part model (trunk + leafy canopy), not a lone cylinder,
+            // so it gets its own builder for a much nicer look (Warren's request).
+            if (key == KeyTree)
+                return BuildTree(pos, rot, parent);
+
             PrimDesc d = Describe(key);
 
             var go = GameObject.CreatePrimitive(d.Shape);
@@ -168,6 +175,62 @@ namespace GoblinSiege.Visual
             if (mr != null) mr.sharedMaterial = GetRoleMaterial(d.ColorTag, d.Color, d.Transparent);
 
             return go;
+        }
+
+        // ───────────────────────────────────────────────────────────────────────
+        // BuildTree — a proper little tree instead of a bare green cylinder.
+        // A thin brown TRUNK (keeps a collider so units are blocked) topped by a
+        // lumpy CANOPY of a few green spheres (decoration, colliders stripped). All
+        // parts share two cached materials (trunk + leaves) so there are no per-tree
+        // material allocations (G3). Kept SHORT and to the flanks by the spawner so
+        // it never hides a unit from the tilted camera (G4).
+        // ───────────────────────────────────────────────────────────────────────
+        private static GameObject BuildTree(Vector3 pos, Quaternion rot, Transform parent)
+        {
+            var root = new GameObject(KeyTree);
+            root.transform.SetPositionAndRotation(pos, rot);
+            if (parent != null) root.transform.SetParent(parent, true);
+
+            Material trunkMat = GetRoleMaterial("treetrunk", TrunkBrown, false);
+            Material leafMat   = GetRoleMaterial("treeleaf",  FoliageGreen, false);
+            Material leafHiMat = GetRoleMaterial("treeleafhi", FoliageGreenLight, false);
+
+            // Trunk: a slim cylinder resting on the ground (base at y = 0).
+            var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            trunk.name = "Trunk";
+            trunk.transform.SetParent(root.transform, false);
+            var trunkScale = new Vector3(0.24f, 0.55f, 0.24f); // cylinder half-height 1.0
+            trunk.transform.localScale = trunkScale;
+            trunk.transform.localPosition = new Vector3(0f, trunkScale.y, 0f); // base on ground
+            var trunkMr = trunk.GetComponent<MeshRenderer>();
+            if (trunkMr != null) trunkMr.sharedMaterial = trunkMat;
+            // Keep the trunk's collider so goblins/warlord are blocked by trees.
+
+            // Canopy: a cluster of green spheres for a soft, leafy blob (colliders off).
+            // (localOffsetXYZ, diameter, useHighlightGreen)
+            AddLeafBlob(root.transform, new Vector3( 0.00f, 1.45f,  0.00f), 1.35f, false, leafMat, leafHiMat);
+            AddLeafBlob(root.transform, new Vector3(-0.45f, 1.20f,  0.15f), 0.95f, true,  leafMat, leafHiMat);
+            AddLeafBlob(root.transform, new Vector3( 0.42f, 1.25f, -0.18f), 1.00f, false, leafMat, leafHiMat);
+            AddLeafBlob(root.transform, new Vector3( 0.10f, 1.85f,  0.05f), 0.85f, true,  leafMat, leafHiMat);
+
+            return root;
+        }
+
+        // One canopy sphere. Colliders are stripped (leaves are pure decoration).
+        private static void AddLeafBlob(Transform parent, Vector3 localPos, float diameter,
+                                        bool highlight, Material leafMat, Material leafHiMat)
+        {
+            var blob = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            blob.name = "Leaves";
+            blob.transform.SetParent(parent, false);
+            blob.transform.localPosition = localPos;
+            blob.transform.localScale = new Vector3(diameter, diameter, diameter);
+
+            Collider col = blob.GetComponent<Collider>();
+            if (col != null) Object.Destroy(col);
+
+            var mr = blob.GetComponent<MeshRenderer>();
+            if (mr != null) mr.sharedMaterial = highlight ? leafHiMat : leafMat;
         }
 
         private struct PrimDesc
