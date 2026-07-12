@@ -159,5 +159,19 @@ namespace GoblinSiege.Units
             }
             return best;
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // CountAttackingHumans — drives the battle music's tempo/intensity.
+        // Counts living human defenders that are actively ENGAGED (Alert state,
+        // once the fight has begun). The MusicManager polls this so the track
+        // speeds up as more humans pile onto the player's goblins.
+        // ═══════════════════════════════════════════════════════════════════
+        public static int CountAttackingHumans()
+        {
+            int n = 0;
+            for (int i = 0; i < Units.Count; i++)
+                if (Units[i] is HumanUnit h && h.IsEngaged) n++;
+            return n;
+        }
     }
 }

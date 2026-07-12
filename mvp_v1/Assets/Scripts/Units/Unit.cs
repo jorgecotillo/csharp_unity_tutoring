@@ -34,6 +34,13 @@ namespace GoblinSiege.Units
         [SerializeField] protected float attackRange = 1.2f;
         [SerializeField] protected float attackInterval = 1f;
 
+        // How close an enemy must be before a unit AUTO-chases it. Beyond this the
+        // unit obeys its move order instead of sprinting across the whole map at the
+        // nearest foe. THIS is what makes right-click orders actually move goblins:
+        // they no longer ignore you to chase a far-off human. Humans still pursue via
+        // their own FSM move target, so their behaviour is unchanged.
+        protected float aggroRadius = 6f;
+
         // 3D physics body (was Rigidbody2D). Movement is velocity-driven on XZ.
         protected Rigidbody Body;
         // Move destination is now a 3D world point; only its XZ matters (G2).
@@ -168,6 +175,10 @@ namespace GoblinSiege.Units
         {
             MoveTarget = worldPos;
             HasMoveTarget = true;
+            // A fresh order takes priority: drop the current auto-target so the unit
+            // heads to the ordered point right away. It will only re-lock onto an
+            // enemy next tick if one is actually within aggroRadius.
+            _currentEnemy = null;
         }
 
         protected virtual void FixedUpdate()
@@ -217,8 +228,22 @@ namespace GoblinSiege.Units
 
         private void AcquireEnemyIfNeeded()
         {
-            if (_currentEnemy != null && _currentEnemy.IsAlive) return;
-            _currentEnemy = CombatRegistry.FindNearestEnemy(this);
+            // Keep the current target only while it's alive AND still inside the aggro
+            // leash; if it slips outside, let go so a move order can take over.
+            if (_currentEnemy != null && _currentEnemy.IsAlive)
+            {
+                float keepSqr = CombatRegistry.FlatSqr(_currentEnemy.transform.position, transform.position);
+                if (keepSqr <= aggroRadius * aggroRadius) return;
+                _currentEnemy = null;
+            }
+
+            Unit candidate = CombatRegistry.FindNearestEnemy(this);
+            if (candidate == null) { _currentEnemy = null; return; }
+
+            // Only lock on if the nearest foe is within aggro range — otherwise the
+            // unit obeys its move order instead of chasing across the board.
+            float sqr = CombatRegistry.FlatSqr(candidate.transform.position, transform.position);
+            _currentEnemy = sqr <= aggroRadius * aggroRadius ? candidate : null;
         }
 
         private bool InAttackRange(Unit enemy)

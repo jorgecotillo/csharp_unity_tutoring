@@ -119,6 +119,13 @@ namespace GoblinSiege.Units
         internal bool ForcedAlert => _forceAlert;
         internal Unit NearestRaider() => CombatRegistry.FindNearestEnemy(this);
 
+        /// <summary>
+        /// True when this defender is awake and actively attacking (in the Alert
+        /// state, with the fight unlocked). The MusicManager counts these so the
+        /// battle music speeds up as more humans join the fray.
+        /// </summary>
+        public bool IsEngaged => IsAlive && _current == _alert && CombatGate.HumansMayFight;
+
         // ─────────────────────────────────────────────────────────────────────
         // T2: State-Tint Helper
         // ─────────────────────────────────────────────────────────────────────
