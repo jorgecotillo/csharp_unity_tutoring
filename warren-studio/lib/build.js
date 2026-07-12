@@ -148,35 +148,47 @@ function startBuild(reason) {
 
   console.log('[build] starting Unity rebuild', reason ? `(${reason})` : '');
 
-  let outFd = 'ignore';
+  // Write the build-start header ourselves (the parent), then let the DETACHED
+  // child append its own output. IMPORTANT (Windows): we do NOT pass inherited
+  // file descriptors to a detached child — that combination silently fails here
+  // (the child never runs). Instead the child is `cmd.exe` doing its OWN `>>`
+  // redirection with stdio:'ignore', which is the reliable Windows pattern for a
+  // fire-and-forget background process that (a) survives a parent/server restart
+  // and (b) actually logs. We still get the child's 'close' event for completion,
+  // and taskkill /T reaches the whole tree (cmd → powershell → Unity) on timeout.
   try {
-    outFd = fs.openSync(BUILD_LOG, 'a');
-    fs.writeSync(outFd, `\n\n===== build start ${state.startedAt} ${reason || ''} =====\n`);
-  } catch (_) { outFd = 'ignore'; }
+    fs.appendFileSync(BUILD_LOG, `\n\n===== build start ${state.startedAt} ${reason || ''} =====\n`);
+  } catch (_) { /* logging is best-effort */ }
 
-  const args = ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-File', REFRESH_SCRIPT, '-NoPush'];
+  // Build the inner command line. PowerShell runs the refresh script and merges
+  // ALL its streams (*>&1 — including Write-Host, which its "Say" helper uses and
+  // which a plain `>>` would MISS) then appends them to the log as UTF-8. cmd is
+  // only the detach wrapper. `exit $LASTEXITCODE` propagates the script's real
+  // result so our 'close' handler sees success/failure correctly. Paths are
+  // single-quoted for PowerShell (handles spaces); the whole -Command value is
+  // passed verbatim (windowsVerbatimArguments) so cmd doesn't mangle it.
+  const psCmd =
+    `powershell -ExecutionPolicy Bypass -NoProfile -Command ` +
+    `"& '${REFRESH_SCRIPT}' -NoPush *>&1 | Out-File -FilePath '${BUILD_LOG}' -Append -Encoding utf8; exit $LASTEXITCODE"`;
+
   try {
-    child = spawn('powershell', args, {
+    child = spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', psCmd], {
       cwd: repo.REPO_ROOT,
       windowsHide: true,
-      // detached: run in its OWN process group so a server restart (manual or the
-      // watchdog self-healing) can't kill the build mid-flight and lose the
-      // publish step. If this server dies, the build finishes + publishes on its
-      // own, and the next server instance adopts it via startupAdoptCheck.
-      detached: true,
-      stdio: ['ignore', outFd, outFd],
+      detached: true,       // own process group → survives a server restart
+      stdio: 'ignore',      // no inherited fds → reliable when detached on Windows
+      // Pass the command line VERBATIM. Without this, Node re-escapes the quotes
+      // and >> / 2>&1 redirect operators, which silently mangles the cmd line so
+      // the child produces no output and never runs the build (the exact bug the
+      // earlier detached+fd version hit). Verified required on this machine.
+      windowsVerbatimArguments: true,
     });
   } catch (err) {
-    if (typeof outFd === 'number') { try { fs.closeSync(outFd); } catch (_) {} }
     finishBuild('error', err && err.message);
     return;
   }
-  // Don't let the running build keep the Node event loop alive; it's fully
-  // independent now.
+  // Fully independent — don't keep the Node event loop alive for it.
   try { child.unref(); } catch (_) {}
-
-  // Close our copy of the fd in the parent; the child keeps its own.
-  if (typeof outFd === 'number') { try { fs.closeSync(outFd); } catch (_) {} }
 
   // A kill from our timeout must take the whole detached process tree with it.
   const childPid = child.pid;
