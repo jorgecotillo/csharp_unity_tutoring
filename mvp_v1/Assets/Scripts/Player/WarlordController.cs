@@ -226,6 +226,11 @@ namespace GoblinSiege.Player
             else
             {
                 _body.linearVelocity = Vector3.zero;
+                // Stop idle spinning: the body allows yaw (Y rotation) so it can face
+                // its travel direction, but that also lets a bump from a wall/door/human
+                // leave leftover angular velocity that keeps the Warlord slowly spinning
+                // forever while standing still. Zero it out whenever he's idle.
+                _body.angularVelocity = Vector3.zero;
             }
         }
 
