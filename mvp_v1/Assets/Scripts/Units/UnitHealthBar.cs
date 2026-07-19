@@ -34,8 +34,12 @@ namespace GoblinSiege.Units
     public sealed class UnitHealthBar : MonoBehaviour
     {
         // On-screen size of the bar, in world metres.
-        private const float BarWidth  = 0.9f;
-        private const float BarHeight = 0.13f;
+        private const float BarWidth  = 1.0f;
+        private const float BarHeight = 0.2f;
+        // Thickness of the black frame drawn around every bar (world metres). This
+        // is what gives each bar a crisp, clearly-visible start and end edge so
+        // neighbouring bars never blur together.
+        private const float Border    = 0.045f;
         // How far above the unit's feet-pivot the bar floats. Units are ~1.8 m tall;
         // a little extra clears the tallest (the Warlord) without floating too high.
         private const float HeightAboveUnit = 2.15f;
@@ -69,20 +73,32 @@ namespace GoblinSiege.Units
         {
             _mpb = new MaterialPropertyBlock();
 
+            // Inner area (inside the black frame) that the track + fill live in.
+            float innerW = BarWidth  - Border * 2f;
+            float innerH = BarHeight - Border * 2f;
+
             // Holder root — its own object so unit scale never distorts the bar.
             var rootGo = new GameObject($"{name}_HealthBar");
             _root = rootGo.transform;
 
-            // Dark backdrop quad.
-            Transform bg = MakeQuad("HP_Bg", _root, new Color(0.05f, 0.05f, 0.05f, 1f));
-            bg.localPosition = Vector3.zero;
-            bg.localScale = new Vector3(BarWidth, BarHeight, 1f);
+            // 1) Black frame — full size, sits at the back. Because the track and
+            //    fill are smaller and drawn in front, this leaves a crisp dark
+            //    border on all four sides so every bar's edges are obvious.
+            Transform frame = MakeQuad("HP_Frame", _root, new Color(0f, 0f, 0f, 1f));
+            frame.localPosition = Vector3.zero;
+            frame.localScale = new Vector3(BarWidth, BarHeight, 1f);
 
-            // Colored fill quad — sits a hair in front of the backdrop so it never
-            // z-fights, and starts full width (updated each frame by hp fraction).
+            // 2) Dark track — the "empty" part of the bar, so you can always see how
+            //    much health is missing against a clean background.
+            Transform track = MakeQuad("HP_Track", _root, new Color(0.12f, 0.12f, 0.12f, 1f));
+            track.localPosition = new Vector3(0f, 0f, -0.01f);
+            track.localScale = new Vector3(innerW, innerH, 1f);
+
+            // 3) Colored fill — sits in front and shrinks toward the LEFT edge as the
+            //    unit loses health (green → yellow → red).
             _fillTf = MakeQuad("HP_Fill", _root, Color.green);
-            _fillTf.localPosition = new Vector3(0f, 0f, -0.01f);
-            _fillTf.localScale = new Vector3(BarWidth, BarHeight * 0.75f, 1f);
+            _fillTf.localPosition = new Vector3(0f, 0f, -0.02f);
+            _fillTf.localScale = new Vector3(innerW, innerH, 1f);
             _fillRenderer = _fillTf.GetComponent<Renderer>();
 
             if (Camera.main != null) _camTf = Camera.main.transform;
@@ -151,10 +167,12 @@ namespace GoblinSiege.Units
             }
             _root.rotation = Quaternion.LookRotation(_root.position - _camTf.position);
 
-            // Update fill: shrink toward the LEFT edge and shift color green→red.
+            // Update fill: shrink toward the LEFT edge inside the frame.
+            float innerW = BarWidth  - Border * 2f;
+            float innerH = BarHeight - Border * 2f;
             float frac = _unit.MaxHp > 0f ? Mathf.Clamp01(_unit.Hp / _unit.MaxHp) : 0f;
-            _fillTf.localScale = new Vector3(BarWidth * frac, BarHeight * 0.75f, 1f);
-            _fillTf.localPosition = new Vector3(-BarWidth * 0.5f * (1f - frac), 0f, -0.01f);
+            _fillTf.localScale = new Vector3(innerW * frac, innerH, 1f);
+            _fillTf.localPosition = new Vector3(-innerW * 0.5f * (1f - frac), 0f, -0.02f);
 
             Color c = frac > 0.5f
                 ? Color.Lerp(Color.yellow, Color.green, (frac - 0.5f) * 2f)
