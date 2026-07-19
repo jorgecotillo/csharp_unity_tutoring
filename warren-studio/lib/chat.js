@@ -306,4 +306,4 @@ function streamChat(userMessage, handlers, sessionId, attachments) {
   };
 }
 
-module.exports = { streamChat, CHAT_MODEL };
+module.exports = { streamChat, CHAT_MODEL, COPILOT_LOADER, MCP_DISABLE_FLAGS };

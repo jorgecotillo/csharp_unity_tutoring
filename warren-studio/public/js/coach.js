@@ -97,16 +97,26 @@
   var prediction = '';
   var lockedThisBuild = false;
 
+  // The active lesson deck. Defaults to the hardcoded generic LESSONS, and gets
+  // SWAPPED to dynamic, code-specific cards once the Code Tutor endpoint returns
+  // an explanation of what Copilot just changed (see pollTutor below).
+  var activeDeck = LESSONS;
+  var dynamicSha = null; // sha of the currently-shown dynamic lesson (null = generic)
+  var eyebrowEl = document.querySelector('#coachLesson .coach-eyebrow');
+  var GENERIC_EYEBROW = '\u2699\uFE0F WHILE YOUR GAME FORGES\u2026';
+  var DYNAMIC_EYEBROW = '\uD83C\uDF93 THE CODE I JUST WROTE FOR YOU';
+  var pollTimer = null;
+
   // ---- Lesson rendering ----------------------------------------------------
   function renderLesson() {
-    var l = LESSONS[idx];
+    var l = activeDeck[idx];
     if (!l) return;
     if (lessonTitle) lessonTitle.innerHTML = l.title;
     if (lessonBody) lessonBody.innerHTML = l.body;
     if (lessonAsk) lessonAsk.textContent = l.ask;
     if (dotsEl) {
       var s = '';
-      for (var i = 0; i < LESSONS.length; i++) s += (i === idx ? '\u25CF' : '\u25CB');
+      for (var i = 0; i < activeDeck.length; i++) s += (i === idx ? '\u25CF' : '\u25CB');
       dotsEl.textContent = s;
     }
     // little fade-in
@@ -116,7 +126,7 @@
     }
   }
   function go(delta) {
-    idx = (idx + delta + LESSONS.length) % LESSONS.length;
+    idx = (idx + delta + activeDeck.length) % activeDeck.length;
     renderLesson();
     restartRotate(); // manual nav resets the auto-advance clock
   }
@@ -177,20 +187,67 @@
     verifyDismissTimer = setTimeout(hideVerify, 8000);
   }
 
+  // ---- Dynamic Code Tutor: poll the server for a code-specific explanation ---
+  // While a build runs, the server generates (cheap/fast model) a kid-friendly
+  // "here's the code I just wrote and why" lesson. We poll for it; the moment it's
+  // ready we swap the generic deck for these real cards. Escaped for safety since
+  // renderLesson uses innerHTML.
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function swapToDynamic(sha, cards) {
+    if (!Array.isArray(cards) || !cards.length) return;
+    if (sha && sha === dynamicSha) return; // already showing this lesson
+    dynamicSha = sha || 'dyn';
+    activeDeck = cards.map(function (c) {
+      return { title: escapeHtml(c.title), body: escapeHtml(c.body), ask: String(c.ask || '') };
+    });
+    if (eyebrowEl) eyebrowEl.textContent = DYNAMIC_EYEBROW;
+    idx = 0;
+    renderLesson();
+    restartRotate();
+  }
+  function pollTutor() {
+    if (pollTimer) clearTimeout(pollTimer);
+    if (!running) return;
+    fetch('/api/tutor/lesson', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!running || !data) return;
+        if (data.ready && Array.isArray(data.cards) && data.cards.length) {
+          swapToDynamic(data.sha, data.cards);
+          return; // got it — stop polling
+        }
+        pollTimer = setTimeout(pollTutor, 4000); // still generating → keep trying
+      })
+      .catch(function () { if (running) pollTimer = setTimeout(pollTutor, 6000); });
+  }
+  function stopPollTutor() {
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  }
+
   // ---- Build lifecycle -----------------------------------------------------
   function startCoach() {
     if (running) return;
     running = true;
     hideVerify();
     resetPredict();
+    // Start each build on the GENERIC deck; the dynamic lesson swaps in when ready.
+    activeDeck = LESSONS;
+    dynamicSha = null;
+    if (eyebrowEl) eyebrowEl.textContent = GENERIC_EYEBROW;
     idx = Math.floor(Math.random() * LESSONS.length);
     renderLesson();
     restartRotate();
+    pollTutor(); // ask the server for a code-specific lesson (arrives ~20-40s in)
   }
   function stopCoach() {
     if (!running) return;
     running = false;
     stopRotate();
+    stopPollTutor();
     // The teachable payoff: if Warren locked a guess, ask him to check it.
     if (lockedThisBuild && prediction) showVerify(prediction);
     lockedThisBuild = false;
@@ -224,6 +281,12 @@
   // Pause rotation when the tab is hidden (saves CPU); resume when back.
   document.addEventListener('visibilitychange', function () {
     if (!running) return;
-    if (document.hidden) stopRotate(); else restartRotate();
+    if (document.hidden) {
+      stopRotate();
+      stopPollTutor();
+    } else {
+      restartRotate();
+      if (!dynamicSha) pollTutor(); // still on generic deck → keep looking for the dynamic one
+    }
   });
 })();

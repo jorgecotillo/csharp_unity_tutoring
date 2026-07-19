@@ -19,6 +19,7 @@ const repo = require('./lib/repo');
 const chat = require('./lib/chat');
 const git = require('./lib/git');
 const build = require('./lib/build');
+const tutor = require('./lib/tutor');
 const pull = require('./lib/pull');
 const oauth = require('./lib/oauth');
 const tokens = require('./lib/tokens');
@@ -218,6 +219,18 @@ app.get('/api/game/status', requireApiAuth, (req, res) => {
   });
 });
 
+// Latest Code Tutor lesson — a dynamic, kid-friendly explanation of the code
+// Copilot just changed. The Build Coach polls this during a rebuild and swaps
+// these real, code-specific cards in (falling back to its generic deck while
+// this is still generating or if generation failed). Read-only + fail-safe.
+app.get('/api/tutor/lesson', requireApiAuth, (req, res) => {
+  try {
+    res.json(tutor.latest());
+  } catch (_) {
+    res.json({ ready: false, status: 'error' });
+  }
+});
+
 // ---- Copilot chat (Phase 2: read / propose only) -------------------------
 // One spawn of the headless Copilot CLI per message, streamed back to the
 // browser over Server-Sent Events. Per-user rate limited to protect the
@@ -400,6 +413,10 @@ app.post('/api/chat', requireApiAuth, (req, res) => {
           gameEdit.rebuilding = true;
           if (r.queued) gameEdit.rebuildQueued = true;
         }
+        // Fire-and-forget: generate a kid-friendly "here's the code I just wrote
+        // and why" tutor lesson (cheap/fast model) so the Build Coach can show it
+        // during the ~6-min build wait. Never blocks or breaks the reply.
+        try { tutor.generate(gameEdit.sha, gameEdit.files, effectiveMessage); } catch (_) {}
       }
 
       send('done', {
