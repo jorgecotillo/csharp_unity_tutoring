@@ -13,9 +13,11 @@ namespace GoblinSiege.EditorTools
     // CharacterSetup — one-button (and auto-once) builder for the animated Mixamo
     // characters (3D_MIGRATION_SPEC Phase C). EDITOR-ONLY.
     // ═══════════════════════════════════════════════════════════════════════════
-    // Builds TWO art prefabs from the FBXs already imported under Assets/Art:
+    // Builds up to THREE art prefabs from the FBXs imported under Assets/Art:
     //   • Maw J Laygo         → Resources/Prefabs/Warlord.prefab  (the PLAYER hero)
     //   • Paladin J Nordstrom → Resources/Prefabs/Human.prefab    (the ENEMY garrison)
+    //   • Goblin (3rd char)   → Resources/Prefabs/Goblin.prefab   (the PLAYER goblins)
+    //     …built only once its FBXs are dropped into Assets/Art/Characters/Goblin.
     //
     // Each prefab = the Humanoid model + retargeted Walk/Run clips + an
     // AnimatorController (Idle→Walk→Run blended by a float "Speed") + a Rigidbody
@@ -100,6 +102,35 @@ namespace GoblinSiege.EditorTools
             };
         }
 
+        // PLAYER goblins = the THIRD Mixamo character. Visual-only, like the Warlord:
+        // Squad.Build attaches GoblinUnit + Rigidbody at spawn, so this prefab carries
+        // NO gameplay component and NO enemy alert ring. Goblins read a little shorter
+        // than the hero so the Warlord still stands out in the pack (G4 readability).
+        //
+        // TO ADD THE ART: drop the character's 3 Mixamo FBX files into
+        //   Assets/Art/Characters/Goblin/
+        // renamed EXACTLY to:  Goblin.fbx , Goblin@Walking.fbx , Goblin@Running.fbx
+        // Then the builder makes Resources/Prefabs/Goblin.prefab and every goblin uses
+        // it automatically (VisualLibrary key "Goblin"). Until those files exist,
+        // BuildOne SKIPS this safely and goblins stay green capsules.
+        private static CharDef Goblin()
+        {
+            const string f = "Assets/Art/Characters/Goblin";
+            return new CharDef
+            {
+                Name = "Goblin", Folder = f,
+                BaseFbx = f + "/Goblin.fbx",
+                WalkFbx = f + "/Goblin@Walking.fbx",
+                RunFbx  = f + "/Goblin@Running.fbx",
+                TexFolder = f + "/Textures",
+                Controller = f + "/GoblinAnimator.controller",
+                RingMat = "Assets/Art/Characters/Maw/AlertRing.mat", // unused (no ring)
+                Prefab = "Assets/Resources/Prefabs/Goblin.prefab",
+                IncludeHumanUnit = false, IncludeAlertRing = false,
+                TargetHeight = 1.4f,
+            };
+        }
+
         // ── Tuning ────────────────────────────────────────────────────────────────
         private const float WalkThreshold = 0.1f;  // Speed above which we leave Idle
         private const float RunThreshold  = 1.8f;   // ≈ moveSpeed*0.7
@@ -135,7 +166,12 @@ namespace GoblinSiege.EditorTools
 
             bool needWarlord = AssetDatabase.LoadAssetAtPath<GameObject>(Warlord().Prefab) == null;
             bool needHuman   = AssetDatabase.LoadAssetAtPath<GameObject>(Human().Prefab) == null;
-            if (!needWarlord && !needHuman) { SessionState.SetBool(SessionKey, true); return; }
+            // Goblin is optional: only require a build once its FBX has been dropped in,
+            // so an absent third character never triggers an endless retry.
+            bool goblinFbxPresent = AssetDatabase.LoadAssetAtPath<GameObject>(Goblin().BaseFbx) != null;
+            bool needGoblin  = goblinFbxPresent &&
+                               AssetDatabase.LoadAssetAtPath<GameObject>(Goblin().Prefab) == null;
+            if (!needWarlord && !needHuman && !needGoblin) { SessionState.SetBool(SessionKey, true); return; }
 
             // Don't run until at least one base FBX is imported.
             if (AssetDatabase.LoadAssetAtPath<GameObject>(Warlord().BaseFbx) == null &&
@@ -145,7 +181,9 @@ namespace GoblinSiege.EditorTools
             {
                 Build();
                 bool ok = AssetDatabase.LoadAssetAtPath<GameObject>(Warlord().Prefab) != null
-                       && AssetDatabase.LoadAssetAtPath<GameObject>(Human().Prefab) != null;
+                       && AssetDatabase.LoadAssetAtPath<GameObject>(Human().Prefab) != null
+                       && (!goblinFbxPresent ||
+                           AssetDatabase.LoadAssetAtPath<GameObject>(Goblin().Prefab) != null);
                 if (ok) SessionState.SetBool(SessionKey, true); // only stop retrying on full success
             }
             catch (Exception e)
@@ -164,14 +202,16 @@ namespace GoblinSiege.EditorTools
 
             BuildOne(Warlord());
             BuildOne(Human());
+            BuildOne(Goblin()); // skips safely until the third character's FBXs exist
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             bool w = AssetDatabase.LoadAssetAtPath<GameObject>(Warlord().Prefab) != null;
             bool h = AssetDatabase.LoadAssetAtPath<GameObject>(Human().Prefab) != null;
-            Log($"RESULT: Warlord.prefab={w}  Human.prefab={h}");
-            Debug.Log($"[CharacterSetup] Warlord.prefab={w}  Human.prefab={h}  (see {LogPath})");
+            bool g = AssetDatabase.LoadAssetAtPath<GameObject>(Goblin().Prefab) != null;
+            Log($"RESULT: Warlord.prefab={w}  Human.prefab={h}  Goblin.prefab={g}");
+            Debug.Log($"[CharacterSetup] Warlord.prefab={w}  Human.prefab={h}  Goblin.prefab={g}  (see {LogPath})");
         }
 
         // Build a single character prefab. Never throws past its own try — a failure
